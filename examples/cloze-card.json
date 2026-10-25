@@ -1,0 +1,37 @@
+{
+  "batch_id": "geography:capitals:v1",
+  "deck_id": "geography",
+  "cards": [
+    {
+      "external_key": "geography:capitals:paris-berlin",
+      "kind": "cloze",
+      "lang": "en",
+      "source": "Geography notes",
+      "front": [
+        {"type": "cloze", "text": "Paris is the capital of {{c1::France::國家}}, and Berlin is the capital of {{c2::Germany}}.", "lang": "en"}
+      ],
+      "back": [
+        {"type": "cloze", "text": "Paris is the capital of {{c1::France::國家}}, and Berlin is the capital of {{c2::Germany}}.", "lang": "en"},
+        {"type": "audio", "filename": "geography_paris_berlin.mp3", "autoplay": false},
+        {"type": "text", "text": "巴黎是法國首都，柏林是德國首都。"},
+        {"type": "source", "text": "Geography notes"}
+      ]
+    },
+    {
+      "external_key": "geography:capitals:tirana:c1",
+      "kind": "cloze",
+      "lang": "en",
+      "term": "Albania",
+      "definition": "阿爾巴尼亞",
+      "context": "Tirana is the capital of Albania.",
+      "source": "Geography notes",
+      "front": [
+        {"type": "cloze", "text": "Tirana is the capital of {{c1::Albania}}.", "index": 1, "lang": "en"}
+      ],
+      "back": [
+        {"type": "cloze", "text": "Tirana is the capital of {{c1::Albania}}.", "index": 1, "lang": "en"},
+        {"type": "text", "text": "地拉那是阿爾巴尼亞首都。"}
+      ]
+    }
+  ]
+}

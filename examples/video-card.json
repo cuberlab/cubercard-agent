@@ -1,0 +1,25 @@
+{
+  "batch_id": "podcast:example-episode-42:v1",
+  "deck_id": "podcast",
+  "cards": [
+    {
+      "external_key": "podcast:example-episode-42:lucid:listen",
+      "term": "lucid",
+      "definition": "清晰的；易懂的",
+      "context": "He gave a lucid explanation of how sleep pressure builds.",
+      "source": "Example Podcast #42 (2026-10-01), 12:03–12:08",
+      "pos": "adjective",
+      "lang": "en",
+      "direction": "listen",
+      "front": [
+        {"type": "video", "filename": "podcast_lucid.mp4", "loudness_lufs": -16.2}
+      ],
+      "back": [
+        {"type": "title", "text": "lucid", "lang": "en"},
+        {"type": "translation", "text": "清晰的；易懂的", "lang": "zh-Hant"},
+        {"type": "quote", "text": "He gave a lucid explanation of how sleep pressure builds.", "lang": "en", "highlight": "lucid"},
+        {"type": "source", "text": "Example Podcast #42 (2026-10-01)"}
+      ]
+    }
+  ]
+}

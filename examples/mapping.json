@@ -1,0 +1,17 @@
+{
+  "note_types": {
+    "Basic (and reversed card)": {
+      "kind": "basic",
+      "lang": "fr",
+      "term": "Front",
+      "definition": "Back",
+      "context": "Example",
+      "source": "Anki: French vocabulary",
+      "blocks": {"Front": "title", "Back": "translation", "Example": "quote", "Notes": "skip"}
+    },
+    "Cloze": {
+      "lang": "en",
+      "blocks": {"Back Extra": "text"}
+    }
+  }
+}

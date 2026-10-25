@@ -1,0 +1,44 @@
+{
+  "batch_id": "albanian:basics:sentence-01:v1",
+  "deck_id": "albanian",
+  "cards": [
+    {
+      "external_key": "albanian:sentence:si-jeni:sq-zh",
+      "kind": "sentence",
+      "lang": "sq",
+      "direction": "listen",
+      "term": "Si jeni?",
+      "definition": "您好嗎？",
+      "context": "Si jeni? — 正式問候",
+      "source": "Albanian basics lesson 1",
+      "front": [
+        {"type": "audio", "filename": "albanian_sentence_si_jeni.mp3", "loudness_lufs": -16.0},
+        {"type": "title", "text": "Si jeni?", "lang": "sq"}
+      ],
+      "back": [
+        {"type": "translation", "text": "您好嗎？", "lang": "zh-Hant"},
+        {"type": "breakdown", "rows": [{"source": "Si", "target": "如何"}, {"source": "jeni", "target": "您（們）是"}]},
+        {"type": "source", "text": "Albanian basics lesson 1"}
+      ]
+    },
+    {
+      "external_key": "albanian:sentence:si-jeni:zh-sq",
+      "kind": "sentence",
+      "lang": "sq",
+      "direction": "speak",
+      "term": "Si jeni?",
+      "definition": "您好嗎？",
+      "context": "Si jeni? — 正式問候",
+      "source": "Albanian basics lesson 1",
+      "front": [
+        {"type": "translation", "text": "您好嗎？", "lang": "zh-Hant"}
+      ],
+      "back": [
+        {"type": "title", "text": "Si jeni?", "lang": "sq"},
+        {"type": "audio", "filename": "albanian_sentence_si_jeni.mp3", "loudness_lufs": -16.0},
+        {"type": "breakdown", "rows": [{"source": "Si", "target": "如何"}, {"source": "jeni", "target": "您（們）是"}]},
+        {"type": "source", "text": "Albanian basics lesson 1"}
+      ]
+    }
+  ]
+}

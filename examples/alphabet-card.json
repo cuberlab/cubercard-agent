@@ -1,0 +1,24 @@
+{
+  "batch_id": "albanian:alphabet:v1",
+  "deck_id": "albanian",
+  "cards": [
+    {
+      "external_key": "albanian:alphabet:ç",
+      "kind": "alphabet",
+      "lang": "sq",
+      "direction": "read",
+      "term": "Ç ç",
+      "definition": "[tʃ]，近似中文「七」的聲母",
+      "context": "çaj（茶）",
+      "source": "Albanian alphabet lesson",
+      "front": [
+        {"type": "title", "text": "Ç ç", "lang": "sq"}
+      ],
+      "back": [
+        {"type": "audio", "filename": "albanian_alphabet_c_cedilla.mp3", "loudness_lufs": -15.8},
+        {"type": "text", "text": "[tʃ]，例：çaj（茶）"},
+        {"type": "source", "text": "Albanian alphabet lesson"}
+      ]
+    }
+  ]
+}

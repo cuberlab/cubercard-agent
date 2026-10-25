@@ -1,0 +1,42 @@
+{
+  "batch_id": "reading:designing-games:ch01:v1",
+  "deck_id": "reading",
+  "cards": [
+    {
+      "external_key": "reading:designing-games:ephemeral",
+      "term": "ephemeral",
+      "definition": "短暫的；轉瞬即逝的",
+      "context": "Most play experiences are ephemeral.",
+      "source": "Designing Games, p.~12",
+      "pos": "adjective",
+      "lang": "en",
+      "direction": "read",
+      "front": [
+        {"type": "title", "text": "ephemeral", "lang": "en"}
+      ],
+      "back": [
+        {"type": "translation", "text": "短暫的；轉瞬即逝的", "lang": "zh-Hant"},
+        {"type": "quote", "text": "Most play experiences are ephemeral.", "lang": "en", "highlight": "ephemeral"},
+        {"type": "source", "text": "Designing Games, p.~12"}
+      ]
+    },
+    {
+      "external_key": "reading:designing-games:emergent",
+      "term": "emergent",
+      "definition": "湧現的（由簡單規則交互產生）",
+      "context": "Emergent behavior arises from simple rules.",
+      "source": "Designing Games, p.~15",
+      "pos": "adjective",
+      "lang": "en",
+      "direction": "read",
+      "front": [
+        {"type": "title", "text": "emergent", "lang": "en"}
+      ],
+      "back": [
+        {"type": "translation", "text": "湧現的（由簡單規則交互產生）", "lang": "zh-Hant"},
+        {"type": "quote", "text": "Emergent behavior arises from simple rules.", "lang": "en", "highlight": "Emergent"},
+        {"type": "source", "text": "Designing Games, p.~15"}
+      ]
+    }
+  ]
+}
