@@ -185,7 +185,8 @@ def read_apkg(path: str | Path) -> Collection:
     for rid, cid, ease, ivl, ms, rtype in conn.execute("SELECT id, cid, ease, ivl, time, type FROM revlog ORDER BY id"):
         revlog.setdefault(cid, []).append({"id": rid, "ease": ease, "ivl": ivl, "time": ms, "type": rtype})
     conn.close()
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    from .manifest import sha256_file
+    digest = sha256_file(path)
     return Collection(note_types, decks, notes, cards, revlog, _media_map(zf), zf, digest, member)
 
 
