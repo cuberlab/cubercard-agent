@@ -1,0 +1,2054 @@
+{
+  "format_version": 1,
+  "algorithm": "fsrs-5",
+  "params": [
+    0.40255,
+    1.18385,
+    3.173,
+    15.69105,
+    7.1949,
+    0.5345,
+    1.4604,
+    0.0046,
+    1.54575,
+    0.1192,
+    1.01925,
+    1.9395,
+    0.11,
+    0.29605,
+    2.2698,
+    0.2315,
+    2.9898,
+    0.51655,
+    0.6621
+  ],
+  "desired_retention": 0.9,
+  "learning_steps_min": [
+    1,
+    10
+  ],
+  "relearning_steps_min": [
+    10
+  ],
+  "maximum_interval_days": 36500,
+  "elapsed_days": "floor((reviewed_at-last_review)/86400)",
+  "rounding": "interval days: floor(x+0.5); expected float fields: 6 decimal places",
+  "vectors": [
+    {
+      "name": "new-1",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "new-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:01:00Z",
+        "new_position": null,
+        "stability": 0.40255,
+        "difficulty": 7.1949,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "new-2",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "new-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:05:30Z",
+        "new_position": null,
+        "stability": 1.18385,
+        "difficulty": 6.488305,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "new-3",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "new-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 3.173,
+        "difficulty": 5.282434,
+        "step": 1,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "new-4",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "new-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-17T00:00:00Z",
+        "new_position": null,
+        "stability": 15.69105,
+        "difficulty": 3.224502,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-1-1",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-1-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-1-1-01",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:02:00Z",
+        "new_position": null,
+        "stability": 0.201689,
+        "difficulty": 8.082797,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-1-2",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-1-2-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-1-2-01",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:06:30Z",
+        "new_position": null,
+        "stability": 0.338078,
+        "difficulty": 7.629717,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-1-3",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-1-3-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-1-3-01",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:11:00Z",
+        "new_position": null,
+        "stability": 0.566698,
+        "difficulty": 7.176636,
+        "step": 1,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-1-4",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-1-4-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-1-4-01",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-02T00:01:00Z",
+        "new_position": null,
+        "stability": 0.949919,
+        "difficulty": 6.723556,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-2-1",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-2-1-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-2-1-01",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:02:00Z",
+        "new_position": null,
+        "stability": 0.593143,
+        "difficulty": 7.607711,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-2-2",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-2-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-2-2-01",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:06:30Z",
+        "new_position": null,
+        "stability": 0.994246,
+        "difficulty": 7.040502,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-2-3",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-2-3-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-2-3-01",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:11:00Z",
+        "new_position": null,
+        "stability": 1.66659,
+        "difficulty": 6.473292,
+        "step": 1,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-2-4",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-2-4-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-2-4-01",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-04T00:01:00Z",
+        "new_position": null,
+        "stability": 2.793596,
+        "difficulty": 5.906082,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-3-1",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-3-1-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-3-1-01",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:02:00Z",
+        "new_position": null,
+        "stability": 1.589764,
+        "difficulty": 6.796933,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-3-2",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-3-2-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-3-2-01",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:11:00Z",
+        "new_position": null,
+        "stability": 2.664817,
+        "difficulty": 6.03495,
+        "step": 1,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-3-3",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-3-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-3-3-01",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-05T00:01:00Z",
+        "new_position": null,
+        "stability": 4.466858,
+        "difficulty": 5.272968,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-3-4",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-3-4-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-3-4-01",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-08T00:01:00Z",
+        "new_position": null,
+        "stability": 7.487502,
+        "difficulty": 4.510986,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-4-1",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-4-1-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-4-1-01",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:11:00Z",
+        "new_position": null,
+        "stability": 7.861664,
+        "difficulty": 5.413262,
+        "step": 0,
+        "reps": 2,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-4-2",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-4-2-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-4-2-01",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-14T00:01:00Z",
+        "new_position": null,
+        "stability": 13.177993,
+        "difficulty": 4.318882,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-4-3",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-4-3-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-4-3-01",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-23T00:01:00Z",
+        "new_position": null,
+        "stability": 22.089409,
+        "difficulty": 3.224502,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "same-day-4-4",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "same-day-4-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "same-day-4-4-01",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-02-07T00:01:00Z",
+        "new_position": null,
+        "stability": 37.027032,
+        "difficulty": 2.130121,
+        "step": 0,
+        "reps": 2,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:01:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "learning-step0-1",
+      "initial_state": {
+        "queue": "learning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step0-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:01:00Z",
+        "new_position": null,
+        "stability": 1.002057,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "learning-step0-2",
+      "initial_state": {
+        "queue": "learning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step0-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:05:30Z",
+        "new_position": null,
+        "stability": 1.679683,
+        "difficulty": 5.799434,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "learning-step0-3",
+      "initial_state": {
+        "queue": "learning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step0-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 2.815542,
+        "difficulty": 4.991833,
+        "step": 1,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "learning-step0-4",
+      "initial_state": {
+        "queue": "learning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step0-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-06T00:00:00Z",
+        "new_position": null,
+        "stability": 4.71951,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "learning-step1-1",
+      "initial_state": {
+        "queue": "learning",
+        "step": 1,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step1-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:01:00Z",
+        "new_position": null,
+        "stability": 1.002057,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "learning-step1-2",
+      "initial_state": {
+        "queue": "learning",
+        "step": 1,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step1-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "learning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 1.679683,
+        "difficulty": 5.799434,
+        "step": 1,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "learning-step1-3",
+      "initial_state": {
+        "queue": "learning",
+        "step": 1,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step1-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-04T00:00:00Z",
+        "new_position": null,
+        "stability": 2.815542,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "learning-step1-4",
+      "initial_state": {
+        "queue": "learning",
+        "step": 1,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "learning-step1-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-06T00:00:00Z",
+        "new_position": null,
+        "stability": 4.71951,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "relearning-step0-1",
+      "initial_state": {
+        "queue": "relearning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "relearning-step0-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 1.002057,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "relearning-step0-2",
+      "initial_state": {
+        "queue": "relearning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "relearning-step0-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:15:00Z",
+        "new_position": null,
+        "stability": 1.679683,
+        "difficulty": 5.799434,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "relearning-step0-3",
+      "initial_state": {
+        "queue": "relearning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "relearning-step0-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-04T00:00:00Z",
+        "new_position": null,
+        "stability": 2.815542,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "relearning-step0-4",
+      "initial_state": {
+        "queue": "relearning",
+        "step": 0,
+        "stability": 2,
+        "difficulty": 5,
+        "reps": 3,
+        "lapses": 1,
+        "new_position": null,
+        "last_review": "2025-12-31T23:50:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      },
+      "events": [
+        {
+          "event_id": "relearning-step0-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-06T00:00:00Z",
+        "new_position": null,
+        "stability": 4.71951,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 7
+      }
+    },
+    {
+      "name": "review-after-1days-1",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-31T00:00:00Z",
+        "due": "2026-01-30T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-1days-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 2.891352,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 21,
+        "lapses": 3,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-1days-2",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-31T00:00:00Z",
+        "due": "2026-01-30T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-1days-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-02-01T00:00:00Z",
+        "new_position": null,
+        "stability": 30.517347,
+        "difficulty": 5.799434,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-1days-3",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-31T00:00:00Z",
+        "due": "2026-01-30T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-1days-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-02-02T00:00:00Z",
+        "new_position": null,
+        "stability": 32.234762,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-1days-4",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-31T00:00:00Z",
+        "due": "2026-01-30T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-1days-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-02-07T00:00:00Z",
+        "new_position": null,
+        "stability": 36.68149,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-30days-1",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-02T00:00:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-30days-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 3.596217,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 21,
+        "lapses": 3,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-30days-2",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-02T00:00:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-30days-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-02-14T00:00:00Z",
+        "new_position": null,
+        "stability": 43.98501,
+        "difficulty": 5.799434,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-30days-3",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-02T00:00:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-30days-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-04-01T00:00:00Z",
+        "new_position": null,
+        "stability": 90.410409,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-30days-4",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-12-02T00:00:00Z",
+        "due": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-30days-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-07-31T00:00:00Z",
+        "new_position": null,
+        "stability": 210.61504,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-365days-1",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-01-01T00:00:00Z",
+        "due": "2025-01-31T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-365days-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 8.727614,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 21,
+        "lapses": 3,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-365days-2",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-01-01T00:00:00Z",
+        "due": "2025-01-31T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-365days-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-04-26T00:00:00Z",
+        "new_position": null,
+        "stability": 114.563099,
+        "difficulty": 5.799434,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-365days-3",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-01-01T00:00:00Z",
+        "due": "2025-01-31T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-365days-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2027-01-31T00:00:00Z",
+        "new_position": null,
+        "stability": 395.283365,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-365days-4",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2025-01-01T00:00:00Z",
+        "due": "2025-01-31T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-365days-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2029-01-27T00:00:00Z",
+        "new_position": null,
+        "stability": 1122.124206,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-3650days-1",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2016-01-04T00:00:00Z",
+        "due": "2016-02-03T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-3650days-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 18.266613,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 21,
+        "lapses": 3,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-3650days-2",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2016-01-04T00:00:00Z",
+        "due": "2016-02-03T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-3650days-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-07-19T00:00:00Z",
+        "new_position": null,
+        "stability": 199.077888,
+        "difficulty": 5.799434,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-3650days-3",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2016-01-04T00:00:00Z",
+        "due": "2016-02-03T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-3650days-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2028-01-31T00:00:00Z",
+        "new_position": null,
+        "stability": 760.358049,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "review-after-3650days-4",
+      "initial_state": {
+        "queue": "review",
+        "step": 0,
+        "stability": 30,
+        "difficulty": 5,
+        "reps": 20,
+        "lapses": 2,
+        "new_position": null,
+        "last_review": "2016-01-04T00:00:00Z",
+        "due": "2016-02-03T00:00:00Z",
+        "state_version": 9
+      },
+      "events": [
+        {
+          "event_id": "review-after-3650days-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2032-01-24T00:00:00Z",
+        "new_position": null,
+        "stability": 2213.624496,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 21,
+        "lapses": 2,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 9
+      }
+    },
+    {
+      "name": "sequence-11233",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "sequence-11233-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-11233-01",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        },
+        {
+          "event_id": "sequence-11233-02",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:10:00Z"
+        },
+        {
+          "event_id": "sequence-11233-03",
+          "rating": 3,
+          "reviewed_at": "2026-01-02T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-11233-04",
+          "rating": 3,
+          "reviewed_at": "2026-01-03T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-04T00:00:00Z",
+        "new_position": null,
+        "stability": 1.449591,
+        "difficulty": 8.322885,
+        "step": 0,
+        "reps": 5,
+        "lapses": 0,
+        "last_review": "2026-01-03T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "sequence-33133",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "sequence-33133-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-33133-01",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        },
+        {
+          "event_id": "sequence-33133-02",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:10:00Z"
+        },
+        {
+          "event_id": "sequence-33133-03",
+          "rating": 3,
+          "reviewed_at": "2026-01-02T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-33133-04",
+          "rating": 3,
+          "reviewed_at": "2026-01-03T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-08T00:00:00Z",
+        "new_position": null,
+        "stability": 5.144523,
+        "difficulty": 6.757835,
+        "step": 0,
+        "reps": 5,
+        "lapses": 1,
+        "last_review": "2026-01-03T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "sequence-4123",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "sequence-4123-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-4123-01",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        },
+        {
+          "event_id": "sequence-4123-02",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:10:00Z"
+        },
+        {
+          "event_id": "sequence-4123-03",
+          "rating": 3,
+          "reviewed_at": "2026-01-02T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-11T00:00:00Z",
+        "new_position": null,
+        "stability": 9.29488,
+        "difficulty": 6.130615,
+        "step": 0,
+        "reps": 4,
+        "lapses": 1,
+        "last_review": "2026-01-02T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "sequence-32134",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "sequence-32134-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-32134-01",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        },
+        {
+          "event_id": "sequence-32134-02",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:10:00Z"
+        },
+        {
+          "event_id": "sequence-32134-03",
+          "rating": 3,
+          "reviewed_at": "2026-01-02T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-32134-04",
+          "rating": 4,
+          "reviewed_at": "2026-01-03T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-10T00:00:00Z",
+        "new_position": null,
+        "stability": 7.325502,
+        "difficulty": 6.826791,
+        "step": 0,
+        "reps": 5,
+        "lapses": 0,
+        "last_review": "2026-01-03T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "sequence-4444",
+      "initial_state": null,
+      "events": [
+        {
+          "event_id": "sequence-4444-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        },
+        {
+          "event_id": "sequence-4444-01",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:01:00Z"
+        },
+        {
+          "event_id": "sequence-4444-02",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:10:00Z"
+        },
+        {
+          "event_id": "sequence-4444-03",
+          "rating": 4,
+          "reviewed_at": "2026-01-02T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-07-27T00:00:00Z",
+        "new_position": null,
+        "stability": 206.182923,
+        "difficulty": 1,
+        "step": 0,
+        "reps": 4,
+        "lapses": 0,
+        "last_review": "2026-01-02T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "maximum-interval-1",
+      "initial_state": {
+        "queue": "review",
+        "stability": 36500,
+        "difficulty": 1,
+        "last_review": "1926-01-26T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "maximum-interval-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 52.134084,
+        "difficulty": 3.917597,
+        "step": 0,
+        "reps": 1,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "maximum-interval-2",
+      "initial_state": {
+        "queue": "review",
+        "stability": 36500,
+        "difficulty": 1,
+        "last_review": "1926-01-26T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "maximum-interval-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2125-12-08T00:00:00Z",
+        "new_position": null,
+        "stability": 48659.918721,
+        "difficulty": 2.463915,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "maximum-interval-3",
+      "initial_state": {
+        "queue": "review",
+        "stability": 36500,
+        "difficulty": 1,
+        "last_review": "1926-01-26T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "maximum-interval-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2125-12-08T00:00:00Z",
+        "new_position": null,
+        "stability": 89026.646744,
+        "difficulty": 1.010233,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "maximum-interval-4",
+      "initial_state": {
+        "queue": "review",
+        "stability": 36500,
+        "difficulty": 1,
+        "last_review": "1926-01-26T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "maximum-interval-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2125-12-08T00:00:00Z",
+        "new_position": null,
+        "stability": 193544.168434,
+        "difficulty": 1,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "short-term-boundary-86399",
+      "initial_state": {
+        "queue": "review",
+        "stability": 10,
+        "difficulty": 5,
+        "last_review": "2025-12-31T00:00:01Z"
+      },
+      "events": [
+        {
+          "event_id": "short-term-boundary-86399-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-15T00:00:00Z",
+        "new_position": null,
+        "stability": 14.077712,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "short-term-boundary-86400",
+      "initial_state": {
+        "queue": "review",
+        "stability": 10,
+        "difficulty": 5,
+        "last_review": "2025-12-31T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "short-term-boundary-86400-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-14T00:00:00Z",
+        "new_position": null,
+        "stability": 12.52799,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "original-fsrs5-low-stability-1",
+      "initial_state": {
+        "queue": "review",
+        "stability": 0.1,
+        "difficulty": 5,
+        "last_review": "2025-01-01T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "original-fsrs5-low-stability-1-00",
+          "rating": 1,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "relearning",
+        "due": "2026-01-01T00:10:00Z",
+        "new_position": null,
+        "stability": 0.416429,
+        "difficulty": 6.607035,
+        "step": 0,
+        "reps": 1,
+        "lapses": 1,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "original-fsrs5-low-stability-2",
+      "initial_state": {
+        "queue": "review",
+        "stability": 0.1,
+        "difficulty": 5,
+        "last_review": "2025-01-01T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "original-fsrs5-low-stability-2-00",
+          "rating": 2,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-03T00:00:00Z",
+        "new_position": null,
+        "stability": 1.53736,
+        "difficulty": 5.799434,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "original-fsrs5-low-stability-3",
+      "initial_state": {
+        "queue": "review",
+        "stability": 0.1,
+        "difficulty": 5,
+        "last_review": "2025-01-01T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "original-fsrs5-low-stability-3-00",
+          "rating": 3,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-07T00:00:00Z",
+        "new_position": null,
+        "stability": 6.308899,
+        "difficulty": 4.991833,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "original-fsrs5-low-stability-4",
+      "initial_state": {
+        "queue": "review",
+        "stability": 0.1,
+        "difficulty": 5,
+        "last_review": "2025-01-01T00:00:00Z"
+      },
+      "events": [
+        {
+          "event_id": "original-fsrs5-low-stability-4-00",
+          "rating": 4,
+          "reviewed_at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-01-20T00:00:00Z",
+        "new_position": null,
+        "stability": 18.663368,
+        "difficulty": 4.184232,
+        "step": 0,
+        "reps": 1,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      }
+    },
+    {
+      "name": "astra-lapse-then-good",
+      "initial_state": {
+        "queue": "review",
+        "due": null,
+        "new_position": null,
+        "stability": 10,
+        "difficulty": 5,
+        "step": 0,
+        "reps": 0,
+        "lapses": 0,
+        "last_review": "2026-01-01T00:00:00Z",
+        "state_version": 0
+      },
+      "events": [
+        {
+          "event_id": "astra-again",
+          "rating": 1,
+          "reviewed_at": "2026-01-11T00:00:00Z"
+        },
+        {
+          "event_id": "astra-good",
+          "rating": 3,
+          "reviewed_at": "2026-02-11T00:00:00Z"
+        }
+      ],
+      "expected": {
+        "queue": "review",
+        "due": "2026-03-13T00:00:00Z",
+        "new_position": null,
+        "stability": 30.298336,
+        "difficulty": 6.591475,
+        "step": 0,
+        "reps": 2,
+        "lapses": 1,
+        "last_review": "2026-02-11T00:00:00Z",
+        "state_version": 0
+      }
+    }
+  ]
+}
