@@ -99,3 +99,14 @@ def test_create_uploads_missing_media_then_batches_and_stops_on_failure(server, 
     assert "created  k0" in captured.out and "batch 1/2 b:part001: created 2" in captured.out
     assert "batch 2/2 (b:part002, 1 cards) failed" in captured.err and "409 content_conflict" in captured.err
     assert [c.method for c in calls] == ["POST", "PUT", "POST", "POST"]
+
+
+def test_429_retries_short_waits_only(server, monkeypatch, capsys):
+    monkeypatch.setattr(api.time, "sleep", lambda s: None)
+    replies = [httpx.Response(429, headers={"Retry-After": "3"}, json={"error": "rate_limited", "detail": "300/min"}),
+               httpx.Response(200, json={"decks": []})]
+    calls = server(lambda r: replies.pop(0))
+    assert cli.main(["decks", "list"]) == 0 and len(calls) == 2
+    server(lambda r: httpx.Response(429, headers={"Retry-After": "40000"}, json={"error": "rate_limited", "detail": "2000 media/day"}))
+    assert cli.main(["decks", "list"]) == 1
+    assert "429 rate_limited: 2000 media/day" in capsys.readouterr().err

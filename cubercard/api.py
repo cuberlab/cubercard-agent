@@ -16,6 +16,8 @@ DEFAULT_BASE = "https://api.card.cuberlab.tw"
 ENV_KEY = "CUBERCARD_API_KEY"
 ENV_BASE = "CUBERCARD_API_BASE"
 MAX_RETRIES_429 = 5
+# Per-minute limits are retried; a longer Retry-After (the daily media limit) is reported instead.
+MAX_RETRY_WAIT_S = 90
 
 
 class CliError(Exception):
@@ -124,8 +126,8 @@ class Client:
                 response = self._http.request(method, path, **kwargs)
             except httpx.HTTPError as error:
                 raise CliError(f"{method} {self.base}{path}: {error}") from error
-            if response.status_code == 429 and attempt < MAX_RETRIES_429:
-                wait = _retry_after(response)
+            wait = _retry_after(response) if response.status_code == 429 else None
+            if wait is not None and wait <= MAX_RETRY_WAIT_S and attempt < MAX_RETRIES_429:
                 print(f"rate limited (429), retrying in {wait}s", file=sys.stderr)
                 time.sleep(wait)
                 continue
@@ -193,6 +195,6 @@ def _seg(value: str) -> str:
 
 def _retry_after(response: httpx.Response) -> int:
     try:
-        return max(1, min(120, int(response.headers.get("Retry-After", "5"))))
+        return max(1, int(response.headers.get("Retry-After", "5")))
     except ValueError:
         return 5
