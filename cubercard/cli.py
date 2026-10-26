@@ -346,7 +346,8 @@ def cmd_cards(args, client: Client) -> int:
             if k in raw and raw[k] != current.get(k):
                 raise CliError(f"{k} cannot be changed ({current.get(k)!r} → {raw[k]!r}); create a new card instead")
         upload_media(client, files, remote)
-        body = {k: card[k] for k in ("term", "definition", "context", "source", "pos", "template", "lang", "direction", "front", "back")
+        body = {k: (None if raw[k] is None and k in ("pos", "template", "lang", "direction") else card[k])
+                for k in ("term", "definition", "context", "source", "pos", "template", "lang", "direction", "front", "back")
                 if k in raw}
         body["based_on_content_version"] = current["content_version"]
         res = client.patch_card(args.id, body)

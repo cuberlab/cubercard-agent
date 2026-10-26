@@ -209,7 +209,7 @@ def extract_media(value: str) -> list[tuple[str, str]]:
     return out
 
 
-def drop_front_repeats(back: list[dict], front: list[dict]) -> list[dict]:
+def drop_front_repeats(back: list[dict], front: list[dict], *, keep_if_empty: bool = True) -> list[dict]:
     """Anki's ``{{FrontSide}}`` repeats the front on the back. Cuber Card keeps the front on screen when
     the answer is shown, so a back block whose content is already on the front is left out (autoplay
     does not count). A back that would become empty is kept as is, so the card still imports."""
@@ -217,7 +217,7 @@ def drop_front_repeats(back: list[dict], front: list[dict]) -> list[dict]:
         return tuple(sorted((k, json.dumps(v, ensure_ascii=False, sort_keys=True)) for k, v in b.items() if k != "autoplay"))
     seen = {key(b) for b in front}
     kept = [b for b in back if key(b) not in seen]
-    return kept or back
+    return kept or (back if keep_if_empty else [])
 
 
 def strip_html(value: str) -> str:
@@ -230,7 +230,7 @@ def strip_html(value: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
-def template_refs(fmt: str, fields: list[str]) -> list[str]:
+def template_refs(fmt: str, fields: list[str], *, answer: bool = False) -> list[str]:
     out = []
     for m in REF_RE.finditer(fmt):
         inner = m.group(1).strip()
@@ -238,7 +238,7 @@ def template_refs(fmt: str, fields: list[str]) -> list[str]:
             continue
         parts = [p.strip() for p in inner.split(":")]
         name, filters = parts[-1], parts[:-1]
-        if "type" in filters:
+        if "type" in filters and not answer:
             continue  # typed-answer box: the field is not shown on this face
         if name == "FrontSide" and "FrontSide" not in out:
             out.append("FrontSide")
@@ -249,7 +249,7 @@ def template_refs(fmt: str, fields: list[str]) -> list[str]:
 
 def template_faces(nt: NoteType, tmpl: Template) -> tuple[list[str], list[str]]:
     front = [r for r in template_refs(tmpl.qfmt, nt.fields) if r != "FrontSide"]
-    back_refs = template_refs(tmpl.afmt, nt.fields)
+    back_refs = template_refs(tmpl.afmt, nt.fields, answer=True)
     back: list[str] = []
     for r in back_refs:
         for name in (front if r == "FrontSide" else [r]):
@@ -491,6 +491,9 @@ class Converter:
         name = plan.cloze_text
         value = note["fields"][plan.nt.fields.index(name)]
         text = strip_html(value)
+        # The API's cloze syntax is single-line inside each deletion. Preserve
+        # the answer/hint and line breaks outside deletions instead of losing cards.
+        text = re.sub(r"\{\{c\d+::[^{}]*\}\}", lambda match: " ".join(match[0].splitlines()), text)
         indexes = cloze_indexes(text)
         if not indexes:
             self.warnings.append(f"anki:{note['id']}: cloze note has no {{{{cN::}}}} in {name!r}; skipped")
@@ -498,9 +501,11 @@ class Converter:
         for c in anki_cards:
             if c["ord"] + 1 not in indexes:
                 self.warnings.append(f"anki:{note['id']}:c{c['ord'] + 1}: Anki card has no matching cloze in the text; skipped")
-        others = [f for f in plan.nt.fields if f != name]
+        front_names, back_names = plan.faces[plan.nt.templates[0].ord]
         media = [b for b in (self._media_block(k, f) for k, f in extract_media(value)) if b]
-        extra = self.field_blocks(plan, note, others)
+        front_extra = [*media, *self.field_blocks(plan, note, front_names)]
+        back_extra = drop_front_repeats(
+            self.field_blocks(plan, note, back_names, repeat=set(front_names)), front_extra, keep_if_empty=False)
         out = []
         for n in indexes:
             card = by_ord.get(n - 1)
@@ -512,7 +517,7 @@ class Converter:
                     or " / ".join(hints) or " / ".join(answers),
                     "context": cloze_plain(text), "source": self.source(plan, card or (anki_cards[0] if anki_cards else None)),
                     # The back repeats the cloze (the app shows it once, answered); the front's media is not repeated.
-                    "front": [cloze, *media], "back": [cloze, *extra]}
+                    "front": [cloze, *front_extra], "back": [cloze, *back_extra]}
             if plan.lang:
                 base["lang"] = plan.lang
             out.append((self._finish(base, card), card))
@@ -571,6 +576,8 @@ def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping:
     conv = Converter(col, plans)
     items = sorted(conv.convert(), key=order_key)
     base_batch = batch_id or f"anki:{col.source_sha256[:16]}"
+    if deck_id and batch_id is None:
+        base_batch += ':' + deck_id
     decks = None
     if deck_id:
         groups = {deck_id: [card for card, _ in items]}

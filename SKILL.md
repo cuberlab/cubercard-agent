@@ -58,8 +58,8 @@ description: >
 
 ## 影片切片
 
-1. `yt-dlp -f "bv*[height<=480]+ba/b[height<=480]" -o src.%(ext)s <URL>`；字幕只輔助定位，抓不到就直接轉錄音訊。
-2. 轉 16 kHz 單聲道 WAV：`ffmpeg -i src.mp4 -ac 1 -ar 16000 src.wav`。
+1. 將來源網址設為 `URL`，執行 `SOURCE_VIDEO="$(yt-dlp -f 'bv*[height<=480]+ba/b[height<=480]' -o 'src.%(ext)s' --print after_move:filepath --no-simulate "$URL")"`，取得實際下載路徑；字幕只輔助定位，抓不到就直接轉錄音訊。
+2. 轉 16 kHz 單聲道 WAV：`ffmpeg -i "$SOURCE_VIDEO" -ac 1 -ar 16000 src.wav`。
 3. 逐詞時間戳：`mlx_whisper src.wav --model mlx-community/whisper-large-v3-turbo --word-timestamps True --output-format json`（其他平台的 Whisper 同樣開 word timestamps）。
 4. 英語解說夾目標語言示範的教學片：分別用英語與目標語言各轉錄一次，交叉找真正的示範位置。
 5. 依下表切片，通過「驗證」才進下一步。
@@ -71,7 +71,7 @@ description: >
 
 - 語言教學的切點：在目標詞前後約 0.3 秒內，用 25 ms RMS 視窗找連續至少 75 ms、低於 −45 dB 的靜音區段。
 - 影片畫面會露出答案（拼字、數字教學）時，正面只放 mp3 發音，拼字與中文放背面。
-- 範例：`ffmpeg -ss 12:03.2 -to 12:08.0 -i src.mp4 -vf scale=-2:360 -c:v libx264 -crf 28 -c:a aac -b:a 64k -ac 1 -movflags +faststart podcast_lucid.mp4`。
+- 範例：`ffmpeg -ss 12:03.2 -to 12:08.0 -i "$SOURCE_VIDEO" -vf scale=-2:360 -c:v libx264 -crf 28 -c:a aac -b:a 64k -ac 1 -movflags +faststart podcast_lucid.mp4`。
 
 ## 驗證（Cut → Verify → Upload）
 
@@ -196,7 +196,7 @@ measure clip.mp3
 - 每張 Anki 卡的作答紀錄會變成 `history`（`source: import`），進度用 FSRS-5（與 app 相同參數）重播 revlog 得到，不是沿用 Anki 的間隔，所以到期日可能與 Anki 略有不同。Anki 裡「忘記／重設」之前的作答仍保留在 history，但不影響狀態。
 - Anki 的新卡保持新卡、順序照舊；Anki 暫停的卡匯入後也是暫停。
 - 粗體、顏色、表格會變純文字；`[sound:]` → audio（影片副檔名 → video）、`<img>` → image。
-- 同一份 .apkg 重跑是冪等的（`batch_id` 預設由檔案 hash 導出）。重新匯出更新過的 .apkg 時，內容沒變的卡回 `existing`，內容改過的卡會 `content_conflict`：先確認差異，再用 `cards update` 改，或在 mapping 用 `skip` 排除。
+- 同一份 .apkg 重跑是冪等的（`batch_id` 預設由檔案 hash 導出；指定 `--deck` 時也包含目標牌組）。重新匯出更新過的 .apkg 時，內容沒變的卡回 `existing`，內容改過的卡會 `content_conflict`：先確認差異，再用 `cards update` 改，或在 mapping 用 `skip` 排除。
 - 已存在的卡不會被新的 history／state 覆蓋。
 
 ## 改卡、暫停、刪除、排程

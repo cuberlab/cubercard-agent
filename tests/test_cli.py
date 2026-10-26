@@ -51,6 +51,22 @@ def test_error_prints_server_error_and_detail(server, capsys):
     assert "Bearer" not in err and "ck_live_test" not in err
 
 
+def test_partial_update_preserves_explicit_nullable_fields(server, tmp_path):
+    current = {'id': 'c_1', 'external_key': 'key', 'kind': 'basic', 'content_version': 3,
+               'sort_key': 'word', 'front': [{'type': 'text', 'text': 'front'}],
+               'back': [{'type': 'text', 'text': 'back'}], 'direction': 'read', 'pos': 'noun'}
+    raw = {'direction': None, 'pos': None, 'lang': None, 'template': None}
+    path = tmp_path / 'patch.json'; path.write_text(json.dumps(raw))
+    def handle(request):
+        if request.method == 'GET':
+            return httpx.Response(200, json=current)
+        assert json.loads(request.content) == {'based_on_content_version': 3, **raw}
+        return httpx.Response(200, json={**current, **raw, 'content_version': 4})
+    calls = server(handle)
+    assert cli.main(['cards', 'update', 'c_1', '--manifest-card', str(path)]) == 0
+    assert [r.method for r in calls] == ['GET', 'PATCH']
+
+
 def test_schedule_sends_based_on_version_and_prints_409_state(server, capsys):
     current = {"queue": "review", "due": "2026-11-01T00:00:00Z", "state_version": 7}
 

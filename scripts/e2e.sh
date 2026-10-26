@@ -19,14 +19,12 @@ FFMPEG="${FFMPEG:-ffmpeg}"
 WRANGLER_PID=""
 
 cleanup() {
-  if [[ -n "$WRANGLER_PID" ]] && kill -0 "$WRANGLER_PID" 2>/dev/null; then
-    kill "$WRANGLER_PID" 2>/dev/null || true
+  # This process group is created below exclusively for our Wrangler tree.
+  # A busy port belongs to someone else and is never a cleanup target.
+  if [[ -n "$WRANGLER_PID" ]]; then
+    kill -TERM -- "-$WRANGLER_PID" 2>/dev/null || true
     wait "$WRANGLER_PID" 2>/dev/null || true
   fi
-  # wrangler dev spawns workerd; make sure nothing keeps listening on our port.
-  local left
-  left="$(lsof -ti "tcp:$PORT" -sTCP:LISTEN 2>/dev/null || true)"
-  if [[ -n "$left" ]]; then kill $left 2>/dev/null || true; fi
   rm -rf -- "${WORK:?}"
 }
 trap cleanup EXIT
@@ -61,7 +59,8 @@ if lsof -ti "tcp:$PORT" -sTCP:LISTEN >/dev/null 2>&1; then fail "port $PORT is a
 mkdir -p "$PERSIST"
 (cd "$SERVER" && CI=1 npx wrangler d1 migrations apply cuber-card --local --persist-to "$PERSIST" >"$WORK/migrate.log" 2>&1) \
   || { cat "$WORK/migrate.log" >&2; fail "migrations failed"; }
-(cd "$SERVER" && exec npx wrangler dev --local --port "$PORT" --ip 127.0.0.1 --persist-to "$PERSIST" >"$WORK/wrangler.log" 2>&1) &
+(cd "$SERVER" && exec python3 -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \
+  npx wrangler dev --local --port "$PORT" --ip 127.0.0.1 --persist-to "$PERSIST" >"$WORK/wrangler.log" 2>&1) &
 WRANGLER_PID=$!
 for _ in $(seq 1 60); do
   curl -fsS "$BASE/v1/health" >/dev/null 2>&1 && break
@@ -80,7 +79,7 @@ ACCESS="$(curl -fsS -X POST "$BASE/v1/auth/login" -H 'content-type: application/
 KEY="$(curl -fsS -X POST "$BASE/v1/api-keys" -H "authorization: Bearer $ACCESS" -H 'content-type: application/json' \
   -d '{"name":"e2e agent"}' | jq -r .key)"
 [[ "$KEY" == ck_live_* ]] || fail "no API key"
-echo "  key ${KEY:0:16}… (test account $SUB@example.com)"
+echo "  test API key created (test account $SUB@example.com)"
 
 step "cubercard auth (key from stdin)"
 printf '%s\n' "$KEY" | cc auth --base "$BASE" >"$WORK/out" 2>&1 || { cat "$WORK/out"; fail "auth failed"; }

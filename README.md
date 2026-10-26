@@ -96,7 +96,7 @@ cubercard cards delete c_0123… --purge              # 永久刪除，進度與
 
 暫停和刪除不同：暫停是卡沒錯、使用者暫時不想看，理由（`too_easy` 等）留著給 agent 參考；刪除是卡本身錯了（建錯、重複、要重做）。
 
-`update` 的檔案是一張 manifest 卡裡要改的欄位，例如 `{"definition": "短暫的", "back": [...]}`；CLI 先讀目前的 `content_version` 再送，新媒體一樣先上傳。不能改 `kind`、`external_key`。
+`update` 的檔案是一張 manifest 卡裡要改的欄位，例如 `{"definition": "短暫的", "back": [...]}`；`pos`、`template`、`lang`、`direction` 可明確填 `null` 清空。CLI 先讀目前的 `content_version` 再送，新媒體一樣先上傳。不能改 `kind`、`external_key`。
 
 ### `trash`：垃圾桶
 
@@ -128,10 +128,10 @@ cubercard create --manifest french-import/manifest.json
 
 - Anki 的牌組樹變成 `--out/decks.json`：`A::B::C` 拆成三個牌組，由上到下 `[{"id", "name", "parent"}]`，`name` 只存最後一段。Anki 有 deck id 的牌組用 `anki-<deck id>`，Anki 沒有紀錄的中間層用 `anki-path-<完整路徑 A::B 的 SHA-256 前 12 hex>`。
 - 每個有卡的 Anki 牌組輸出一份 manifest，`deck_id` 是卡所在的牌組：只有一個時寫 `manifest.json`，多個時寫 `manifest-<deck id>.json`（`batch_id` 加上 `:<deck id>`）。`create` 會先依旁邊的 `decks.json` 建牌組。篩選牌組裡的卡算回原本的牌組。
-- `--deck <id>`：全部卡放進這個既有牌組，只寫一份 `manifest.json`、不寫 `decks.json`。
+- `--deck <id>`：全部卡放進這個既有牌組，只寫一份 `manifest.json`、不寫 `decks.json`；預設 `batch_id` 包含目標牌組，同檔同牌組重跑仍冪等，明確指定的 `--batch-id` 保持原值。
 - 讀 `.apkg` 內的 `collection.anki21b`（新版 zstd 格式）、`collection.anki21` 或 `collection.anki2`。
 - 每個欄位變成文字 block：預設第一個欄位當 `term`／`title`、第二個當 `definition`／`translation`、其餘 `text`；正反面依卡片模板引用了哪些欄位決定。`[sound:x]` 變 `audio`（影片副檔名變 `video`）、`<img src>` 變 `image`，其他 HTML 去掉。
-- Cloze note type 依 `{{cN::}}` 展開成 N 張 `kind: cloze` 卡，external_key `anki:<note_id>:c<N>`；一般卡 `anki:<note_id>:<ord>`。
+- Cloze note type 依 `{{cN::}}` 展開成 N 張 `kind: cloze` 卡，external_key `anki:<note_id>:c<N>`；挖空內換行轉成空格，額外提示與媒體依模板或 mapping 的正反面配置；一般卡 `anki:<note_id>:<ord>`。輸入答案卡型的正面略過輸入框，背面保留答案。
 - 每張卡的 revlog 變成 `history[]`，並用 FSRS-5（與 app 相同參數）重播出 `state`；新卡維持新卡，順序沿用 Anki；Anki 暫停的卡匯入後也是暫停。
 - 媒體解到 `--out/media/`（所有 manifest 共用）。輸出前先印每種 note type 的欄位對應預覽、卡數與牌組樹；`--preview` 只印不寫。
 - `--mapping` 指定欄位對應，格式見 [examples/mapping.json](examples/mapping.json)：每個 note type 可設 `term`、`definition`、`context`（欄位名）、`kind`、`lang`、`source`、`blocks`（欄位 → `title`／`text`／`translation`／`quote`／`source`／`skip`）、`front`／`back`（欄位清單）或 `templates`（依模板名稱或 ord 分別設 `front`／`back`）、`skip`。
