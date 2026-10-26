@@ -61,9 +61,9 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 
 `GET /v1/media/{sha256}` 下載（支援 `Range`、`ETag`／`If-None-Match`）；`HEAD` 取 metadata。只有上傳過該檔的帳號拿得到，其他帳號一律 404。
 
-配額：每人儲存 5 GiB（以每人上傳過的檔案大小總和計算），超過回 413 `quota_exceeded` 並附 `storage_used_bytes`、`storage_quota_bytes`。
+配額：每人儲存 5 GiB（以每人上傳過的檔案大小總和計算），包含進行中的上傳保留；超過回 413 `quota_exceeded` 並附 `storage_used_bytes`、`storage_quota_bytes`。
 
-回收：媒體不跟卡一起刪。server 每天 04:30（Asia/Taipei，UTC 20:30）先清掉垃圾桶裡過期的卡與牌組，再回收「這個帳號已沒有任何卡引用、且上傳超過 24 小時」的檔案並釋放配額（垃圾桶裡的卡仍算引用）；`DELETE`／`PATCH /v1/cards/{id}` 結束時也會對你的帳號順手跑一次。所以先上傳、24 小時內送 batch 不會被收走；回收後要再用就重新上傳（`media/check` 會列為 `missing`）。同一份檔案別的帳號也有時，只扣你的那份。上傳期間共用的檔案剛好被回收時回 503 `retry_upload`，重傳即可。
+回收：媒體不跟卡一起刪。server 每天 04:30（Asia/Taipei，UTC 20:30）先清掉垃圾桶裡過期的卡與牌組，再回收「這個帳號已沒有任何卡引用、且上傳超過 24 小時」的檔案並釋放配額（垃圾桶裡的卡仍算引用）；`DELETE`／`PATCH /v1/cards/{id}` 結束時也會對你的帳號順手跑一次。所以先上傳、24 小時內送 batch 不會被收走；回收後要再用就重新上傳（`media/check` 會列為 `missing`）。同一份檔案別的帳號也有時，只扣你的那份。同一 sha256 的上傳者尚未結束、10 分鐘保留逾期，或共用檔案在驗證期間被回收時回 503 `retry_upload`。CLI 只對相同本文的媒體 PUT 依短期 `Retry-After` 有界重試，其他寫入不自動重送。
 
 ## 建卡：`POST /v1/cards/batch`
 
@@ -181,6 +181,7 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 ## 同步（手機用，agent 通常不需要）
 
 - `GET /v1/bootstrap`：全部牌組、卡片（含 history）、媒體、`cursor`、`scheduler`（FSRS-5 參數）、儲存用量。
+- `review` 的 `duplicate` 不保證排程已套用；未解決的排程仍列在 `conflicts`。`card_state` 可帶 `replay: [{event_id}]`，只有本次版本寫入成功才確認同帳號、同卡片的 pending review。第一個衝突後，同卡後續相依排程也回衝突。舊 review 的未知結果不回填或自動重播。
 - `POST /v1/sync`：`{"device_id", "cursor", "events": [...]}`（≤ 1,000 事件），回 `accepted`、`duplicate`、`rejected`、`conflicts`、新 `cursor` 與之後的變動；`removed_card_ids`、`removed_deck_ids` 是 cursor 之後被刪掉或進垃圾桶的卡與牌組。牌組 JSON 帶 `parent_id`。
 
 ## 錯誤代碼
@@ -208,4 +209,4 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 | 415 | `unsupported_media_type` | Content-Type 不是 audio／video／image | 修 Content-Type |
 | 429 | `rate_limited` | 超過每分鐘 300 次或每日 2,000 檔 | 等 `Retry-After` 秒數 |
 | 500 | `internal` | server 錯誤 | 原文回報 |
-| 503 | `retry_upload` | 上傳期間共用的媒體剛好被回收 | 重傳同一個檔 |
+| 503 | `retry_upload` | 同一媒體正在上傳、配額保留逾期，或共用物件在驗證期間被回收 | 依 `Retry-After` 重傳同一個檔；CLI 最多重試 5 次 |

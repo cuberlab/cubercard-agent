@@ -243,7 +243,7 @@ CLI 原文印出 server 的 `error` 代碼與 `detail`，部分錯誤另附欄�
 | `content_conflict`（409） | 見「冪等」；整批沒寫，不要另造 key |
 | `concurrent_write`（409） | 有另一個請求同時在建同一批；重跑 |
 | `version_conflict`（409） | 讀完之後被手機改過；重新讀再決定 |
-| `retry_upload`（503） | 上傳時共用的媒體剛好被回收；重跑 `create` |
+| `retry_upload`（503） | 相同媒體仍在上傳、保留逾期或物件剛被回收；CLI 對同本文媒體 PUT 最多短期重試 5 次，仍失敗才重跑 `create` |
 | `too_many_cards`、`payload_too_large`（413） | 一般由 CLI 自動切批；單張卡太大就縮短文字，單檔超過 20 MB 就壓縮 |
 | `quota_exceeded`（413） | 儲存配額用完，附用量；停下回報使用者 |
 | `rate_limited`（429） | 每分鐘 300 次的限制 CLI 會自動等；每日 2,000 檔媒體上限用完就隔天再跑 |

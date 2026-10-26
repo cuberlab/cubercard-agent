@@ -422,3 +422,23 @@ def test_create_explains_a_deck_in_the_trash(server, tmp_path, capsys):
     server(handler)
     assert cli.main(["create", "--manifest", str(folder / "manifest.json")]) == 1
     assert "probably in the trash" in capsys.readouterr().err
+
+
+def test_media_retry_upload_replays_only_identical_put(server, monkeypatch, tmp_path):
+    """Reservation owner/expiry retries must not replay non-idempotent commands."""
+    monkeypatch.setattr(api.time, "sleep", lambda s: None)
+    media = tmp_path / "a.mp3"
+    media.write_bytes(b"same bytes")
+    replies = [httpx.Response(503, headers={"Retry-After": "1"}, json={"error": "retry_upload", "detail": "another owner"}),
+               httpx.Response(201, json={"status": "created"})]
+    calls = server(lambda r: replies.pop(0))
+    client = cli.Client("http://test.invalid", "ck_live_test")
+    assert client.put_media("a" * 64, media, "audio/mpeg")["status"] == "created"
+    assert len(calls) == 2 and calls[0].content == calls[1].content == b"same bytes"
+    assert all(r.method == "PUT" for r in calls)
+    calls.clear()
+    server(lambda r: httpx.Response(503, headers={"Retry-After": "1"}, json={"error": "retry_upload", "detail": "stop"}))
+    with pytest.raises(api.ApiError):
+        client.json("POST", "/v1/cards/batch", {})
+    assert len(calls) == 1
+    client.close()

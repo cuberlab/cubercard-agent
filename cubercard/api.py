@@ -127,9 +127,17 @@ class Client:
                 response = self._http.request(method, path, **kwargs)
             except httpx.HTTPError as error:
                 raise CliError(f"{method} {self.base}{path}: {error}") from error
-            wait = _retry_after(response) if response.status_code == 429 else None
+            # Only a content-addressed media PUT is safe to replay on a temporary
+            # reservation/GC error. Never retry an arbitrary POST or other 503.
+            media_retry = False
+            if response.status_code == 503 and method.upper() == "PUT" and path.startswith("/v1/media/"):
+                try:
+                    media_retry = response.json().get("error") == "retry_upload"
+                except (ValueError, AttributeError):
+                    pass
+            wait = _retry_after(response) if response.status_code == 429 or media_retry else None
             if wait is not None and wait <= MAX_RETRY_WAIT_S and attempt < MAX_RETRIES_429:
-                print(f"rate limited (429), retrying in {wait}s", file=sys.stderr)
+                print(f"temporary HTTP {response.status_code}, retrying in {wait}s", file=sys.stderr)
                 time.sleep(wait)
                 continue
             break
