@@ -27,10 +27,8 @@ def test_apkg_to_manifest(tmp_path, fmt):
     basic = cards[f"anki:{fx.BASIC_NID}:0"]
     assert basic["term"] == "bonjour" and basic["definition"] == "hello\na greeting"
     assert basic["front"] == [{"type": "title", "text": "bonjour"}, {"type": "audio", "filename": "media/bonjour.mp3"}]
-    # {{FrontSide}} repeats the front on the back; its audio does not autoplay twice.
-    assert basic["back"] == [{"type": "title", "text": "bonjour"},
-                             {"type": "audio", "filename": "media/bonjour.mp3", "autoplay": False},
-                             {"type": "translation", "text": "hello\na greeting"}]
+    # {{FrontSide}} repeats the front on the back; the app keeps the front on screen, so the repeats are dropped.
+    assert basic["back"] == [{"type": "translation", "text": "hello\na greeting"}]
     assert [h["rating"] for h in basic["history"]] == [3, 3, 3]  # the manual reschedule row is not a review
     assert basic["history"][0] == {"rating": 3, "reviewed_at": "2026-01-01T00:00:00Z", "duration_ms": 4000}
     expected = fsrs.replay(_events(3001))
@@ -42,6 +40,7 @@ def test_apkg_to_manifest(tmp_path, fmt):
     assert c1["kind"] == c2["kind"] == "cloze"
     assert c1["front"][0] == {"type": "cloze", "text": fx.CLOZE_TEXT, "index": 1}
     assert c2["front"][0]["index"] == 2 and c2["back"][0] == c2["front"][0]
+    assert not [b for b in c1["back"] if b["type"] in ("audio", "video")], "the front's media is not repeated on the back"
     assert {"type": "image", "filename": "media/map.png"} in c1["back"]
     assert {"type": "text", "text": "Europe"} in c1["back"]
     assert c1["term"] == "France" and c2["term"] == "Germany"
@@ -89,3 +88,12 @@ def test_html_helpers():
         ("audio", "a.mp3"), ("image", "b.png"), ("image", "c.jpg"), ("video", "v.mp4")]
     assert apkg.template_refs("{{#Front}}{{Front}}{{/Front}} {{type:Back}} {{tts en_US:Front}} {{hint:Extra}}",
                               ["Front", "Back", "Extra"]) == ["Front", "Extra"]
+
+
+def test_drop_front_repeats_ignores_autoplay_and_keeps_a_back_that_would_be_empty():
+    title = {"type": "title", "text": "pamuk"}
+    audio = {"type": "audio", "filename": "media/p.mp3"}
+    back = [title, dict(audio, autoplay=False), {"type": "translation", "text": "棉"}]
+    assert apkg.drop_front_repeats(back, [title, audio]) == [{"type": "translation", "text": "棉"}]
+    assert apkg.drop_front_repeats([title], [title, audio]) == [title]
+    assert apkg.drop_front_repeats([{"type": "title", "text": "pamuk", "lang": "tr"}], [title]) == [{"type": "title", "text": "pamuk", "lang": "tr"}]

@@ -206,6 +206,17 @@ def extract_media(value: str) -> list[tuple[str, str]]:
     return out
 
 
+def drop_front_repeats(back: list[dict], front: list[dict]) -> list[dict]:
+    """Anki's ``{{FrontSide}}`` repeats the front on the back. Cuber Card keeps the front on screen when
+    the answer is shown, so a back block whose content is already on the front is left out (autoplay
+    does not count). A back that would become empty is kept as is, so the card still imports."""
+    def key(b: dict):
+        return tuple(sorted((k, json.dumps(v, ensure_ascii=False, sort_keys=True)) for k, v in b.items() if k != "autoplay"))
+    seen = {key(b) for b in front}
+    kept = [b for b in back if key(b) not in seen]
+    return kept or back
+
+
 def strip_html(value: str) -> str:
     text = MEDIA_RE.sub(" ", value)
     text = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", text)
@@ -451,7 +462,7 @@ class Converter:
         for card in anki_cards:
             front_names, back_names = plan.faces.get(card["ord"], (plan.nt.fields[:1], plan.nt.fields[1:]))
             front = self.field_blocks(plan, note, front_names)
-            back = self.field_blocks(plan, note, back_names, repeat=set(front_names))
+            back = drop_front_repeats(self.field_blocks(plan, note, back_names, repeat=set(front_names)), front)
             key = f"anki:{note['id']}:{card['ord']}"
             if not front or not back:
                 self.warnings.append(f"{key}: {'front' if not front else 'back'} is empty after conversion; skipped")
@@ -487,13 +498,13 @@ class Converter:
             card = by_ord.get(n - 1)
             cloze = {"type": "cloze", "text": text, "index": n, **({"lang": plan.lang} if plan.lang else {})}
             answers, hints = cloze_answers(text, n)
-            back_media = [dict(b, autoplay=False) if b["type"] in ("audio", "video") else b for b in media]
             base = {"external_key": f"anki:{note['id']}:c{n}", "kind": "cloze", "term": " / ".join(answers),
                     "definition": (strip_html(note["fields"][plan.nt.fields.index(plan.definition)])
                                    if plan.definition != name and plan.definition in plan.nt.fields else "")
                     or " / ".join(hints) or " / ".join(answers),
                     "context": cloze_plain(text), "source": self.source(plan, card or (anki_cards[0] if anki_cards else None)),
-                    "front": [cloze, *media], "back": [cloze, *back_media, *extra]}
+                    # The back repeats the cloze (the app shows it once, answered); the front's media is not repeated.
+                    "front": [cloze, *media], "back": [cloze, *extra]}
             if plan.lang:
                 base["lang"] = plan.lang
             out.append((self._finish(base, card), card))

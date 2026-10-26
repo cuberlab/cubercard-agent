@@ -1,6 +1,6 @@
 [project]
 name = "cubercard"
-version = "0.1.1"
+version = "0.1.2"
 description = "Cuber Card agent kit: CLI for creating and maintaining Cuber Card flashcards over the API"
 readme = "README.md"
 requires-python = ">=3.12"

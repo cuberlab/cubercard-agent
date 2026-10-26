@@ -128,6 +128,7 @@ measure clip.mp3
 - 媒體 block：`audio`、`video`、`image`，寫 `filename`（相對 `--media-dir`，不能是絕對路徑或含 `..`），可加 `autoplay`（audio 預設 true）、`loudness_lufs`。CLI 自己算 SHA-256、上傳缺的檔，送出時只帶 `sha256`。也可以直接寫已上傳檔案的 `sha256`。
 - 顯示在卡面的文字都要明確寫成 block；`context`、`source` 欄位只是 metadata，不會自動顯示。
 - HTML 不會被解讀；不要放 Anki 的 HTML 或 `[sound:]` 標記。
+- 翻面時正面會留在畫面上、背面接在下面，所以背面不要重複正面已有的 block（同一個音檔、同一段標題）；Anki `{{FrontSide}}` 那種背面轉檔時會自動去掉重複。
 
 ## 冪等
 
