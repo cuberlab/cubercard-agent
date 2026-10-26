@@ -110,3 +110,39 @@ def test_429_retries_short_waits_only(server, monkeypatch, capsys):
     server(lambda r: httpx.Response(429, headers={"Retry-After": "40000"}, json={"error": "rate_limited", "detail": "2000 media/day"}))
     assert cli.main(["decks", "list"]) == 1
     assert "429 rate_limited: 2000 media/day" in capsys.readouterr().err
+
+
+def test_cards_delete_prints_released_media(server, capsys):
+    def handler(request):
+        assert request.method == "DELETE" and request.url.path == "/v1/cards/c_1"
+        assert "force" not in request.url.params
+        return httpx.Response(200, json={"id": "c_1", "deleted": True, "media_released": ["a" * 64, "b" * 64],
+                                         "storage_used_bytes": 0, "storage_quota_bytes": 5368709120})
+
+    calls = server(handler)
+    assert cli.main(["cards", "delete", "c_1"]) == 0
+    assert capsys.readouterr().out.strip() == "c_1: deleted（釋放媒體 2 個）"
+    assert len(calls) == 1
+
+
+def test_cards_delete_has_history_without_force_exits_1(server, capsys):
+    calls = server(lambda r: httpx.Response(409, json={"error": "has_history", "detail": "card has 3 review(s)", "reviews": 3,
+                                                       "card": {"id": "c_1"}}))
+    assert cli.main(["cards", "delete", "c_1"]) == 1
+    captured = capsys.readouterr()
+    assert "這張卡有 3 筆複習紀錄，確定要連進度一起刪請加 --force" in captured.err
+    assert captured.out == ""
+    assert len(calls) == 1 and "force" not in calls[0].url.params
+
+
+def test_cards_delete_force_sends_force_1(server, capsys):
+    def handler(request):
+        if request.url.params.get("force") != "1":
+            return httpx.Response(409, json={"error": "has_history", "detail": "card has 3 review(s)", "reviews": 3, "card": {"id": "c_1"}})
+        return httpx.Response(200, json={"id": "c_1", "deleted": True, "media_released": [],
+                                         "storage_used_bytes": 10, "storage_quota_bytes": 100})
+
+    calls = server(handler)
+    assert cli.main(["cards", "delete", "c_1", "--force"]) == 0
+    assert capsys.readouterr().out.strip() == "c_1: deleted（釋放媒體 0 個）"
+    assert [(c.method, c.url.params.get("force")) for c in calls] == [("DELETE", "1")]

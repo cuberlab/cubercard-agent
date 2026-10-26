@@ -224,6 +224,16 @@ def cmd_cards(args, client: Client) -> int:
         res = client.patch_state(args.id, body)
         print(f"{res['id']}: suspended={res['suspended']}" + (f" ({res['suspend_reason']})" if res.get("suspend_reason") else ""))
         return 0
+    if action == "delete":
+        try:
+            res = client.delete_card(args.id, force=args.force)
+        except ApiError as error:
+            if error.status == 409 and error.code == "has_history":
+                print(f"這張卡有 {error.body.get('reviews')} 筆複習紀錄，確定要連進度一起刪請加 --force", file=sys.stderr)
+                return 1
+            raise
+        print(f"{res['id']}: deleted（釋放媒體 {len(res.get('media_released') or [])} 個）")
+        return 0
     raise CliError(f"unknown cards action: {action}")
 
 
@@ -310,7 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("--media-dir", help="directory that media filenames are relative to (default: manifest's directory)")
     c.add_argument("--dry-run", action="store_true")
 
-    k = sub.add_parser("cards", help="list / get / update / suspend / unsuspend cards")
+    k = sub.add_parser("cards", help="list / get / update / suspend / unsuspend / delete cards")
     ks = k.add_subparsers(dest="action", required=True)
     kl = ks.add_parser("list")
     kl.add_argument("--deck")
@@ -329,6 +339,9 @@ def build_parser() -> argparse.ArgumentParser:
     kp.add_argument("--reason", choices=SUSPEND_REASONS, default="agent")
     kr = ks.add_parser("unsuspend")
     kr.add_argument("id")
+    kd = ks.add_parser("delete", help="hard-delete a card (wrong, duplicate or to be redone); media is collected by the server later")
+    kd.add_argument("id")
+    kd.add_argument("--force", action="store_true", help="also delete a card that has review history, with its progress")
 
     sc = sub.add_parser("schedule", help="change one card's schedule (reads state_version first)")
     sc.add_argument("id")

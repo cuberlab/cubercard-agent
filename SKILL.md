@@ -2,7 +2,7 @@
 name: cubercard
 description: >
   用 cubercard CLI 為 Cuber Card 建立與維護單字、片語、句型、字母與 cloze 卡：從影片、書本、文字或 PDF 選詞，
-  切音訊／影片片段並驗證、統一音量，寫 manifest 建卡；也能匯入 Anki .apkg（保留複習進度）、改卡、暫停、調整排程。
+  切音訊／影片片段並驗證、統一音量，寫 manifest 建卡；也能匯入 Anki .apkg（保留複習進度）、改卡、刪卡、暫停、調整排程。
   觸發詞：Cuber Card、單字卡、做卡、flashcard、背單字、vocab、cloze、克漏字、Anki 匯入、apkg。
 ---
 
@@ -171,10 +171,12 @@ measure clip.mp3
 - 同一份 .apkg 重跑是冪等的（`batch_id` 預設由檔案 hash 導出）。重新匯出更新過的 .apkg 時，內容沒變的卡回 `existing`，內容改過的卡會 `content_conflict`：先確認差異，再用 `cards update` 改，或在 mapping 用 `skip` 排除。
 - 已存在的卡不會被新的 history／state 覆蓋。
 
-## 改卡、暫停、排程
+## 改卡、刪卡、暫停、排程
 
 - 改卡面：寫一個只含要改欄位的 JSON（例 `{"definition": "…", "back": [...]}`），`cubercard cards update <id> --manifest-card fix.json --media-dir clips/`。`kind`、`external_key` 不能改。
-- 暫停／恢復：`cubercard cards suspend <id> --reason too_easy`（`too_easy`、`too_hard`、`not_interested`、`agent`、`import`）、`cubercard cards unsuspend <id>`。沒有刪卡，不要的卡就暫停。
+- 暫停／恢復：`cubercard cards suspend <id> --reason too_easy`（`too_easy`、`too_hard`、`not_interested`、`agent`、`import`）、`cubercard cards unsuspend <id>`。
+- 刪卡：建錯、重複、要重做的卡用 `cubercard cards delete <id>`；學過但暫時不想看的用 suspend。有複習紀錄的卡 delete 會被擋（CLI 印出筆數、exit 1），確定要連進度一起刪才加 `--force`，先問過使用者。刪掉後同一份 manifest（同 `batch_id`）重送會重建這張卡；cloze 刪一張 `:cN` 不影響同 note 其他卡。
+- 媒體不會跟卡一起刪，server 每天 04:30（Asia/Taipei）回收 24 小時以上沒有任何卡引用的媒體並釋放配額。要重建卡就在那之前重送，或讓 `cubercard create` 重新上傳（回收後 `media/check` 會列為 missing）。
 - 排程：`cubercard schedule <id> --due 2026-12-01T09:00:00+08:00`（複習卡提前／延後）、`--new-position 0`（新卡排最前）、`--reset`（變回新卡）。CLI 會先讀 `state_version`；回 409 表示手機剛同步改過，CLI 會印出目前狀態，重新判斷再跑，不要硬蓋。
 - 每牌組每日新卡數：`cubercard decks set <id> --new-per-day 10`。
 
@@ -193,6 +195,8 @@ CLI 原文印出 server 的 `error` 代碼與 `detail`，部分錯誤另附欄�
 | `content_conflict`（409） | 見「冪等」；整批沒寫，不要另造 key |
 | `concurrent_write`（409） | 有另一個請求同時在建同一批；重跑 |
 | `version_conflict`（409） | 讀完之後被手機改過；重新讀再決定 |
+| `has_history`（409） | 要刪的卡有複習紀錄（附 `reviews` 筆數）；改用 suspend，或確認後加 `--force` |
+| `retry_upload`（503） | 上傳時共用的媒體剛好被回收；重跑 `create` |
 | `too_many_cards`、`payload_too_large`（413） | 一般由 CLI 自動切批；單張卡太大就縮短文字，單檔超過 20 MB 就壓縮 |
 | `quota_exceeded`（413） | 儲存配額用完，附用量；停下回報使用者 |
 | `rate_limited`（429） | 每分鐘 300 次的限制 CLI 會自動等；每日 2,000 檔媒體上限用完就隔天再跑 |

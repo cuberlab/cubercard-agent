@@ -51,6 +51,8 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 
 配額：每人儲存 5 GiB（以每人上傳過的檔案大小總和計算），超過回 413 `quota_exceeded` 並附 `storage_used_bytes`、`storage_quota_bytes`。
 
+回收：媒體不跟卡一起刪。server 每天 04:30（Asia/Taipei，UTC 20:30）回收「這個帳號已沒有任何卡引用、且上傳超過 24 小時」的檔案並釋放配額；`DELETE`／`PATCH /v1/cards/{id}` 結束時也會對你的帳號順手跑一次。所以先上傳、24 小時內送 batch 不會被收走；回收後要再用就重新上傳（`media/check` 會列為 `missing`）。同一份檔案別的帳號也有時，只扣你的那份。上傳期間共用的檔案剛好被回收時回 503 `retry_upload`，重傳即可。
+
 ## 建卡：`POST /v1/cards/batch`
 
 ```json
@@ -109,6 +111,17 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 | `GET /v1/cards/{id}` | 單張卡，含 `history` |
 | `PATCH /v1/cards/{id}` | 改卡面：`term`、`definition`、`context`、`source`、`pos`、`template`、`lang`、`direction`、`front`、`back` 任選，可帶 `based_on_content_version`；成功 `content_version + 1`。不能改 `kind`、`deck`、`external_key`。版本不符 409 `version_conflict` 附目前卡片 |
 
+### 刪卡：`DELETE /v1/cards/{id}[?force=1]`
+
+硬刪卡片，連同排程狀態、媒體引用、該卡的裝置事件（暫停／狀態）。用在建錯、重複、要重做的卡；學過但暫時不想看的卡用暫停。
+
+- 成功 200：`{"id": "c_…", "deleted": true, "media_released": ["<sha256>", …], "storage_used_bytes": 0, "storage_quota_bytes": 5368709120}`。`media_released` 是這次順手回收的媒體（這個帳號超過 24 小時、已沒有任何卡引用的檔案，可能包含別張卡先前留下的）。
+- 卡片有作答紀錄、沒帶 `force=1`：409 `has_history`，附 `reviews`（筆數）與 `card`（含 `history`），什麼都沒刪。
+- `force=1`：作答紀錄一起刪，無法復原。
+- 找不到或不是自己的卡：404 `not_found`。
+- 刪掉後，同 `batch_id`、同內容的 manifest 重送會重建這張卡（`status: "created"`，同一個 card id，manifest 的 `history`／`state` 重新寫入）；同批其他還在的卡回 `existing`。cloze 刪一張 `:cN` 不影響同 note 的其他卡。
+- 手機下次 `/v1/sync` 從 `removed_card_ids` 得知這張卡被刪。
+
 **Card**：`id`、`deck_id`、`note_id`、`external_key`、`kind`、`template`、`lang`、`direction`、`sort_key`、`front`、`back`、`content_version`、`state`、`suspended`、`suspend_reason`、`suspended_at`、`history`（`[{reviewed_at, rating, duration_ms, source}]`）。
 
 ## 排程：`PATCH /v1/cards/{id}/state`
@@ -137,7 +150,7 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 ## 同步（手機用，agent 通常不需要）
 
 - `GET /v1/bootstrap`：全部牌組、卡片（含 history）、媒體、`cursor`、`scheduler`（FSRS-5 參數）、儲存用量。
-- `POST /v1/sync`：`{"device_id", "cursor", "events": [...]}`（≤ 1,000 事件），回 `accepted`、`duplicate`、`rejected`、`conflicts`、新 `cursor` 與之後的變動。
+- `POST /v1/sync`：`{"device_id", "cursor", "events": [...]}`（≤ 1,000 事件），回 `accepted`、`duplicate`、`rejected`、`conflicts`、新 `cursor` 與之後的變動；`removed_card_ids` 是 cursor 之後被刪掉的卡。
 
 ## 錯誤代碼
 
@@ -155,8 +168,10 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 | 409 | `content_conflict` | 既有 `external_key` 內容不同，附 `external_keys`；整批沒寫 | 確認是要改既有卡（`PATCH`）還是 key 取錯 |
 | 409 | `id_collision`、`concurrent_write` | 導出 ID 碰撞；或同時有另一個請求建同一批卡 | `concurrent_write` 重跑同一批即可；`id_collision` 回報 |
 | 409 | `version_conflict` | 狀態或卡面在你讀取後被改過，附目前 `state`／`card` | 重新讀再決定 |
+| 409 | `has_history` | 要刪的卡有作答紀錄，附 `reviews`、`card`；什麼都沒刪 | 改用暫停，或確認後帶 `?force=1` |
 | 411 | `length_required` | 上傳沒帶 Content-Length | 帶上 |
 | 413 | `too_many_cards`、`payload_too_large`、`quota_exceeded` | 一批超過 500 張、本文超過 2 MB、單檔超過 20 MB，或儲存配額用完 | 切批；壓縮媒體；配額用完找管理者 |
 | 415 | `unsupported_media_type` | Content-Type 不是 audio／video／image | 修 Content-Type |
 | 429 | `rate_limited` | 超過每分鐘 300 次或每日 2,000 檔 | 等 `Retry-After` 秒數 |
 | 500 | `internal` | server 錯誤 | 原文回報 |
+| 503 | `retry_upload` | 上傳期間共用的媒體剛好被回收 | 重傳同一個檔 |

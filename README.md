@@ -69,7 +69,7 @@ cubercard create --manifest batch.json --media-dir clips/
 - 每張卡印 `created` 或 `existing`。同一份 manifest 重跑不會重複建卡。
 - `--dry-run` 只驗證與規劃；有 key 時另外查牌組是否存在、哪些媒體要上傳（唯讀）。
 
-### `cards`：查卡、改卡、暫停
+### `cards`：查卡、改卡、刪卡、暫停
 
 ```sh
 cubercard cards list --deck french                  # 一頁 100 張；--all 自動翻頁；--json 原始資料
@@ -78,6 +78,7 @@ cubercard cards get c_0123456789abcdef0123456789abcdef
 cubercard cards update c_0123… --manifest-card fix.json --media-dir clips/
 cubercard cards suspend c_0123… --reason too_easy   # too_easy | too_hard | not_interested | agent | import
 cubercard cards unsuspend c_0123…
+cubercard cards delete c_0123…                      # 有複習紀錄會被擋（exit 1），要連進度一起刪加 --force
 ```
 
 `update` 的檔案是一張 manifest 卡裡要改的欄位，例如 `{"definition": "短暫的", "back": [...]}`；CLI 先讀目前的 `content_version` 再送，新媒體一樣先上傳。不能改 `kind`、`external_key`。

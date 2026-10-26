@@ -187,6 +187,10 @@ class Client:
     def patch_state(self, card_id: str, body: dict) -> dict:
         return self.json("PATCH", f"/v1/cards/{_seg(card_id)}/state", body)
 
+    def delete_card(self, card_id: str, force: bool = False) -> dict:
+        """Hard-delete a card. Without force the server answers 409 has_history when the card has reviews."""
+        return self.json("DELETE", f"/v1/cards/{_seg(card_id)}", params={"force": "1"} if force else None)
+
 
 def _seg(value: str) -> str:
     from urllib.parse import quote

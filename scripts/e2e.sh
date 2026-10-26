@@ -199,6 +199,19 @@ JSON
 run cards update "$TEXT_ID" --manifest-card "$WORK/update.json" --media-dir "$WORK/media"
 has "content_version 1 → 2"
 
+step "cards delete (history needs --force; sync reports the removal)"
+EXPECT_FAIL=1 run cards delete "$REVIEW_ID"
+has "這張卡有 3 筆複習紀錄，確定要連進度一起刪請加 --force"
+run cards get "$REVIEW_ID"
+run cards delete "$REVIEW_ID" --force
+has "$REVIEW_ID: deleted（釋放媒體 0 個）"
+EXPECT_FAIL=1 run cards get "$REVIEW_ID"
+has "404 not_found"
+code="$(curl -sS -o "$WORK/body" -w '%{http_code}' -X POST "$BASE/v1/sync" -H "authorization: Bearer $KEY" \
+  -H 'content-type: application/json' -d '{"cursor": "0", "events": []}')"
+[[ "$code" == 200 ]] && jq -e --arg id "$REVIEW_ID" '.removed_card_ids | index($id) != null' "$WORK/body" >/dev/null || fail "sync lacks removed_card_ids"
+echo "  /v1/sync removed_card_ids contains $REVIEW_ID"
+
 step "status"
 run status
 has "account: $SUB@example.com"; has "storage: "; has "^reading +Reading +12 +1003"
