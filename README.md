@@ -48,12 +48,21 @@ cubercard auth --base http://127.0.0.1:8787   # 對本機開發 server
 cubercard status
 ```
 
-### `decks`：牌組
+### `decks`：牌組樹
+
+牌組是一棵樹（每個牌組有 `parent`，最多 5 層）。名字只寫自己這一層，不能含 `::`；每日新卡上限只管該牌組自己的卡，不蓋子牌組。
 
 ```sh
-cubercard decks                                   # 列表（同 decks list）
-cubercard decks create "🇫🇷 French" --id french --new-per-day 15
-cubercard decks set french --new-per-day 10
+cubercard decks                                   # 平的列表，含 parent（同 decks list；--json 原始資料）
+cubercard decks tree                              # 樹狀縮排：自己的卡數、含子牌組的卡數、每日新卡
+cubercard decks create "🇬🇧 English" --id english
+cubercard decks create "Grace" --id grace --parent english --new-per-day 15
+cubercard decks rename grace "Grace 2"
+cubercard decks move grace --to turkish           # --to root = 移到最上層；子牌組跟著走
+cubercard decks set english --new-per-day 10 --apply-to-subdecks
+cubercard decks delete grace                      # 牌組＋子牌組＋所有卡進垃圾桶，7 天內可復原
+cubercard decks restore grace
+cubercard decks delete grace --purge              # 永久刪除，無法復原
 ```
 
 ### `create`：依 manifest 建卡
@@ -67,9 +76,10 @@ cubercard create --manifest batch.json --media-dir clips/
 - 媒體 block 寫 `filename`（相對 `--media-dir`，預設 manifest 所在目錄）；CLI 算 SHA-256，`POST /v1/media/check` 只上傳缺的，送給 server 的 block 只帶 `sha256`。
 - 超過 500 張（或單批超過約 1.9 MB）自動切成 `<batch_id>:part001`、`part002`…依序送；某批失敗就停下並印出是哪一批，前面的批次已寫入，修好後整份重跑即可（已寫入的批次會 replay）。
 - 每張卡印 `created` 或 `existing`。同一份 manifest 重跑不會重複建卡。
-- `--dry-run` 只驗證與規劃；有 key 時另外查牌組是否存在、哪些媒體要上傳（唯讀）。
+- manifest 旁有 `decks.json`（或用 `--decks PATH` 指定）時，先由上到下建缺的牌組再建卡；已存在的牌組跳過，名字或上層和 server 不同只印 `warning:`、不改。
+- `--dry-run` 只驗證與規劃；有 key 時另外查牌組是否存在（含 `decks.json` 會建哪些）、哪些媒體要上傳（唯讀）。
 
-### `cards`：查卡、改卡、刪卡、暫停
+### `cards`：查卡、改卡、搬卡、刪卡、暫停
 
 ```sh
 cubercard cards list --deck french                  # 一頁 100 張；--all 自動翻頁；--json 原始資料
@@ -78,10 +88,24 @@ cubercard cards get c_0123456789abcdef0123456789abcdef
 cubercard cards update c_0123… --manifest-card fix.json --media-dir clips/
 cubercard cards suspend c_0123… --reason too_easy   # too_easy | too_hard | not_interested | agent | import
 cubercard cards unsuspend c_0123…
-cubercard cards delete c_0123…                      # 有複習紀錄會被擋（exit 1），要連進度一起刪加 --force
+cubercard cards move c_0123… --to grace             # 搬到別的牌組，card id 不變
+cubercard cards delete c_0123…                      # 進垃圾桶，7 天內可復原
+cubercard cards restore c_0123…
+cubercard cards delete c_0123… --purge              # 永久刪除，進度與複習紀錄一起刪，無法復原
 ```
 
+暫停和刪除不同：暫停是卡沒錯、使用者暫時不想看，理由（`too_easy` 等）留著給 agent 參考；刪除是卡本身錯了（建錯、重複、要重做）。
+
 `update` 的檔案是一張 manifest 卡裡要改的欄位，例如 `{"definition": "短暫的", "back": [...]}`；CLI 先讀目前的 `content_version` 再送，新媒體一樣先上傳。不能改 `kind`、`external_key`。
+
+### `trash`：垃圾桶
+
+```sh
+cubercard trash list            # 被刪的牌組（只列根，附子牌組數與卡數）與單獨刪的卡，各附 purge_at；--json 原始資料
+cubercard trash empty           # 全部永久刪除，無法復原
+```
+
+刪卡、刪牌組預設都進垃圾桶，保留 7 天後由 server 清掉；`--purge` 與 `trash empty` 才是立刻永久刪除。
 
 ### `schedule`：改一張卡的排程
 
@@ -96,18 +120,20 @@ CLI 先讀卡片的 `state_version` 當 `based_on_version`。手機剛好同步�
 ### `apkg-to-manifest`：Anki 匯入
 
 ```sh
-cubercard decks create "French" --id french
-cubercard apkg-to-manifest ~/Downloads/French.apkg --deck french --out french-import/ --preview
-cubercard apkg-to-manifest ~/Downloads/French.apkg --deck french --out french-import/ --mapping examples/mapping.json
-cubercard create --manifest french-import/manifest.json --dry-run
+cubercard apkg-to-manifest ~/Downloads/French.apkg --out french-import/ --preview
+cubercard apkg-to-manifest ~/Downloads/French.apkg --out french-import/ --mapping examples/mapping.json
+cubercard create --manifest french-import/manifest.json --dry-run    # 多個牌組時是 manifest-<deck id>.json，每份各跑一次
 cubercard create --manifest french-import/manifest.json
 ```
 
+- Anki 的牌組樹變成 `--out/decks.json`：`A::B::C` 拆成三個牌組，由上到下 `[{"id", "name", "parent"}]`，`name` 只存最後一段。Anki 有 deck id 的牌組用 `anki-<deck id>`，Anki 沒有紀錄的中間層用 `anki-path-<完整路徑 A::B 的 SHA-256 前 12 hex>`。
+- 每個有卡的 Anki 牌組輸出一份 manifest，`deck_id` 是卡所在的牌組：只有一個時寫 `manifest.json`，多個時寫 `manifest-<deck id>.json`（`batch_id` 加上 `:<deck id>`）。`create` 會先依旁邊的 `decks.json` 建牌組。篩選牌組裡的卡算回原本的牌組。
+- `--deck <id>`：全部卡放進這個既有牌組，只寫一份 `manifest.json`、不寫 `decks.json`。
 - 讀 `.apkg` 內的 `collection.anki21b`（新版 zstd 格式）、`collection.anki21` 或 `collection.anki2`。
 - 每個欄位變成文字 block：預設第一個欄位當 `term`／`title`、第二個當 `definition`／`translation`、其餘 `text`；正反面依卡片模板引用了哪些欄位決定。`[sound:x]` 變 `audio`（影片副檔名變 `video`）、`<img src>` 變 `image`，其他 HTML 去掉。
 - Cloze note type 依 `{{cN::}}` 展開成 N 張 `kind: cloze` 卡，external_key `anki:<note_id>:c<N>`；一般卡 `anki:<note_id>:<ord>`。
 - 每張卡的 revlog 變成 `history[]`，並用 FSRS-5（與 app 相同參數）重播出 `state`；新卡維持新卡，順序沿用 Anki；Anki 暫停的卡匯入後也是暫停。
-- 媒體解到 `--out/media/`，manifest 寫到 `--out/manifest.json`。輸出前先印每種 note type 的欄位對應預覽與卡數；`--preview` 只印不寫。
+- 媒體解到 `--out/media/`（所有 manifest 共用）。輸出前先印每種 note type 的欄位對應預覽、卡數與牌組樹；`--preview` 只印不寫。
 - `--mapping` 指定欄位對應，格式見 [examples/mapping.json](examples/mapping.json)：每個 note type 可設 `term`、`definition`、`context`（欄位名）、`kind`、`lang`、`source`、`blocks`（欄位 → `title`／`text`／`translation`／`quote`／`source`／`skip`）、`front`／`back`（欄位清單）或 `templates`（依模板名稱或 ord 分別設 `front`／`back`）、`skip`。
 - 不做音量正規化；做法見 SKILL.md「音量」。
 

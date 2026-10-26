@@ -35,6 +35,9 @@ CLOZE_RE = re.compile(r"\{\{c(\d+)::(.+?)(?:::(.*?))?\}\}")
 CARD_KEYS = {"external_key", "term", "definition", "context", "source", "pos", "kind", "template", "lang",
              "direction", "front", "back", "history", "state", "suspended"}
 MANIFEST_KEYS = {"batch_id", "deck_id", "cards"}
+DECKS_FILE = "decks.json"
+DECK_KEYS = {"id", "name", "parent"}
+MAX_DECK_DEPTH = 5
 FUTURE_SKEW = timedelta(minutes=10)
 
 MIME_BY_EXT = {
@@ -484,3 +487,59 @@ def resolve_card(raw: dict, media_dir: Path | None, current: dict) -> tuple[dict
     merged.update(raw)
     card = validate_card(merged, "card", ctx, datetime.now(timezone.utc))
     return card, ctx.media, ctx.remote - set(ctx.media)
+
+
+# ---------------------------------------------------------------- decks.json
+
+def check_deck_name(name: Any, label: str = "name") -> str:
+    """A deck name is one level of the tree: nonempty, no ``::`` (the server answers 400 invalid_field)."""
+    name = _nonempty(name, label)
+    if "::" in name:
+        raise ManifestError(f"{label}: deck names cannot contain '::' ({name!r}); decks form a tree, use a parent deck instead")
+    return name
+
+
+def load_decks(path: str | Path) -> list[dict]:
+    """``decks.json``: ``[{id, name, parent}]`` top-down; a parent is null, an earlier entry or an existing deck."""
+    path = Path(path)
+    try:
+        data = json.loads(path.read_text())
+    except OSError as error:
+        raise ManifestError(f"cannot read decks file {path}: {error}") from error
+    except ValueError as error:
+        raise ManifestError(f"decks file {path} is not valid JSON: {error}") from error
+    if not isinstance(data, list):
+        raise ManifestError(f"{path.name} must be a JSON array of {{id, name, parent}}")
+    out, seen = [], set()
+    for i, raw in enumerate(data):
+        label = f"{path.name}[{i}]"
+        if not isinstance(raw, dict):
+            raise ManifestError(f"{label} must be an object")
+        unknown = sorted(set(raw) - DECK_KEYS)
+        if unknown:
+            raise ManifestError(f"{label}: unknown field(s): {', '.join(unknown)}")
+        deck_id = _nonempty(raw.get("id"), f"{label}.id")
+        if not DECK_ID_RE.match(deck_id):
+            raise ManifestError(f"{label}.id must match [a-z0-9][a-z0-9_-]{{0,63}}: {deck_id}")
+        if deck_id in seen:
+            raise ManifestError(f"{label}: duplicate deck id {deck_id}")
+        name = check_deck_name(raw.get("name"), f"{label}.name")
+        parent = raw.get("parent")
+        if parent is not None:
+            if not isinstance(parent, str) or not DECK_ID_RE.match(parent):
+                raise ManifestError(f"{label}.parent must be null or a deck id")
+            if parent == deck_id:
+                raise ManifestError(f"{label}: a deck cannot be its own parent")
+            if parent in {d["id"] for d in data[i + 1:] if isinstance(d, dict)}:
+                raise ManifestError(f"{label}: parent {parent} must come before its subdecks (top-down order)")
+        seen.add(deck_id)
+        out.append({"id": deck_id, "name": name, "parent": parent})
+    return out
+
+
+def decks_path_for(manifest_path: str | Path, explicit: str | None = None) -> Path | None:
+    """``--decks PATH``, else ``decks.json`` next to the manifest when it exists."""
+    if explicit:
+        return Path(explicit)
+    candidate = Path(manifest_path).resolve().parent / DECKS_FILE
+    return candidate if candidate.is_file() else None

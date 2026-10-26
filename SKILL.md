@@ -2,8 +2,9 @@
 name: cubercard
 description: >
   用 cubercard CLI 為 Cuber Card 建立與維護單字、片語、句型、字母與 cloze 卡：從影片、書本、文字或 PDF 選詞，
-  切音訊／影片片段並驗證、統一音量，寫 manifest 建卡；也能匯入 Anki .apkg（保留複習進度）、改卡、刪卡、暫停、調整排程。
-  觸發詞：Cuber Card、單字卡、做卡、flashcard、背單字、vocab、cloze、克漏字、Anki 匯入、apkg。
+  切音訊／影片片段並驗證、統一音量，寫 manifest 建卡；也能匯入 Anki .apkg（保留複習進度與牌組樹）、管理子牌組、
+  改卡、搬卡、刪卡（進垃圾桶、可復原）、暫停、調整排程。
+  觸發詞：Cuber Card、單字卡、做卡、flashcard、背單字、vocab、cloze、克漏字、Anki 匯入、apkg、子牌組、垃圾桶。
 ---
 
 # Cuber Card 卡片建立
@@ -13,11 +14,31 @@ description: >
 ## 開始前
 
 1. `cubercard status` 確認已登入、看現有牌組與儲存用量。失敗回 401 就請使用者在 app「設定 → API key」產生新 key，再跑 `cubercard auth`。
-2. 用既有牌組的真實 `id`（`cubercard decks`）。要新牌組先 `cubercard decks create "🇫🇷 French" --id french`，命名沿用「旗幟 + 英文名稱」。
+2. 用既有牌組的真實 `id`（`cubercard decks tree` 看整棵樹，`cubercard decks` 看平的清單與 `parent`）。要新牌組先 `cubercard decks create "🇫🇷 French" --id french`，命名沿用「旗幟 + 英文名稱」；子牌組加 `--parent <上層 id>`，見「牌組樹」。
 3. 查重：`cubercard cards list --deck <id> --all --json`，比對 `sort_key`（= term）與 `external_key`；已有的詞與同詞族不再做。
 4. 影片流程確認有 `yt-dlp`、`ffmpeg`、Whisper（Apple Silicon 用 `mlx_whisper`，其他平台用 `whisper` 或 whisper.cpp）；文字或書本只需要實際用到的語音工具。
 
 工作檔（完整影片、WAV、時間戳、截圖）放本次暫存目錄，建卡並回讀成功後清掉。
+
+## 牌組樹
+
+牌組是一棵樹，不是用名字裡的 `::` 分層：
+
+- 每個牌組有自己的 `parent`（沒有就是最上層），最多 5 層。名字只寫自己這一層，**不准含 `::`**（CLI 先擋，server 也回 400）。「English › Grace」= 建 `English`，再建 `Grace --parent english`。
+- 同一個上層底下不能有同名牌組。母牌組自己也可以有卡。
+- 牌組只由 agent 建（app 沒有建牌組功能）；使用者在 app 可以排序、改名、移動、刪牌組。
+- **每日新卡上限只管這個牌組自己的卡**，不蓋子牌組。複習母牌組時，子樹裡每個牌組各自依自己的上限出新卡再合起來；app 今日頁母牌組那列是子孫加總。要整棵一起改就加 `--apply-to-subdecks`。
+
+| 要做的事 | 指令 |
+|---|---|
+| 看樹（自己的卡數、含子牌組的卡數、每日新卡） | `cubercard decks tree` |
+| 建子牌組 | `cubercard decks create "Grace" --id grace --parent english` |
+| 改名 | `cubercard decks rename grace "Grace 2"` |
+| 移到別的上層／最上層（子牌組跟著走） | `cubercard decks move grace --to turkish`、`cubercard decks move grace --to root` |
+| 每日新卡 | `cubercard decks set english --new-per-day 10`（加 `--apply-to-subdecks` 寫進所有子牌組） |
+| 把一張卡搬到別的牌組 | `cubercard cards move <card id> --to grace` |
+
+移動時目標不能是自己或自己的子孫（400 `invalid_parent`）。搬卡後 card id 不變；原本的 manifest 不要再送到舊牌組，否則舊牌組會多出一張新卡。
 
 ## 選詞
 
@@ -156,13 +177,19 @@ measure clip.mp3
 ## Anki 匯入
 
 1. 請使用者在 Anki 桌面版「檔案 → 匯出」，格式選「Anki Deck Package (*.apkg)」，**勾選「包含排程資訊」與「包含媒體」**。
-2. 建目標牌組：`cubercard decks create "French" --id french`。
-3. 預覽：`cubercard apkg-to-manifest French.apkg --deck french --out french-import --preview`。逐一核對每種 note type 的欄位對應、正反面欄位與卡數，把預覽給使用者確認。
-4. 對應不對就寫 mapping（格式見 [examples/mapping.json](examples/mapping.json)：`term`／`definition`／`context` 欄位、`blocks` 欄位型態或 `skip`、`front`／`back`、`lang`、`kind`），用 `--mapping` 再預覽。
-5. 確認後輸出：`cubercard apkg-to-manifest French.apkg --deck french --out french-import --mapping mapping.json`。
-6. 媒體在 `french-import/media/`；音檔需要統一音量時照「音量」一節處理後覆蓋原檔（CLI 會重新算 hash）。
-7. `cubercard create --manifest french-import/manifest.json --dry-run`，再正式 `create`。
-8. 回讀：`cubercard cards list --deck french --all` 張數要等於預覽的總卡數；抽幾張複習過的卡 `cards get`，確認 `history` 與 `state` 存在。
+2. 預覽：`cubercard apkg-to-manifest French.apkg --out french-import --preview`。逐一核對每種 note type 的欄位對應、正反面欄位、卡數，以及最後印出的**牌組樹**（每個牌組的 id 與卡數），把預覽給使用者確認。
+3. 對應不對就寫 mapping（格式見 [examples/mapping.json](examples/mapping.json)：`term`／`definition`／`context` 欄位、`blocks` 欄位型態或 `skip`、`front`／`back`、`lang`、`kind`），用 `--mapping` 再預覽。
+4. 確認後輸出：`cubercard apkg-to-manifest French.apkg --out french-import --mapping mapping.json`。會寫出：
+   - `decks.json`：Anki 的 `A::B::C` 拆成三個牌組，由上到下 `[{"id", "name", "parent"}]`。
+   - 每個有卡的 Anki 牌組一份 manifest（只有一個牌組時是 `manifest.json`，多個時是 `manifest-<deck id>.json`），`deck_id` 是卡實際所在的那個牌組。
+   - `media/`：所有 manifest 共用。
+5. 媒體需要統一音量時照「音量」一節處理後覆蓋原檔（CLI 會重新算 hash）。
+6. 每份 manifest 各跑一次 `cubercard create --manifest french-import/<manifest> --dry-run`，再正式 `create`。`create` 會**先依 manifest 旁的 `decks.json` 建缺的牌組，再建卡**：已存在的牌組跳過；名字或上層和 server 不同只印 `warning:`、不會改（照使用者意思用 `decks rename`／`decks move` 自己改）。第二份以後的 manifest 牌組都已存在，只建卡。
+7. 回讀：`cubercard decks tree` 確認樹與卡數；每個牌組 `cubercard cards list --deck <id> --all` 張數要等於預覽；抽幾張複習過的卡 `cards get`，確認 `history` 與 `state` 存在。
+
+牌組 id 規則：Anki 有自己 deck id 的牌組（葉，以及 Anki 有紀錄的中間層）用 `anki-<Anki deck id>`；Anki 沒有紀錄的中間層用 `anki-path-<完整路徑 A::B 的 SHA-256 前 12 hex>`。同一份 Anki 重新匯出，id 都一樣，所以重跑是冪等的。名字只存最後一段（`Grace`，不是 `English::Grace`）。Anki 篩選牌組（filtered deck）裡的卡算回原本的牌組。
+
+要把整份 .apkg 全部放進一個既有牌組、不管 Anki 的樹時，改加 `--deck <id>`：只輸出一份 `manifest.json`、不寫 `decks.json`（0.1.x 的做法）。
 
 說明：
 
@@ -172,14 +199,29 @@ measure clip.mp3
 - 同一份 .apkg 重跑是冪等的（`batch_id` 預設由檔案 hash 導出）。重新匯出更新過的 .apkg 時，內容沒變的卡回 `existing`，內容改過的卡會 `content_conflict`：先確認差異，再用 `cards update` 改，或在 mapping 用 `skip` 排除。
 - 已存在的卡不會被新的 history／state 覆蓋。
 
-## 改卡、刪卡、暫停、排程
+## 改卡、暫停、刪除、排程
 
 - 改卡面：寫一個只含要改欄位的 JSON（例 `{"definition": "…", "back": [...]}`），`cubercard cards update <id> --manifest-card fix.json --media-dir clips/`。`kind`、`external_key` 不能改。
-- 暫停／恢復：`cubercard cards suspend <id> --reason too_easy`（`too_easy`、`too_hard`、`not_interested`、`agent`、`import`）、`cubercard cards unsuspend <id>`。
-- 刪卡：建錯、重複、要重做的卡用 `cubercard cards delete <id>`；學過但暫時不想看的用 suspend。有複習紀錄的卡 delete 會被擋（CLI 印出筆數、exit 1），確定要連進度一起刪才加 `--force`，先問過使用者。刪掉後同一份 manifest（同 `batch_id`）重送會重建這張卡；cloze 刪一張 `:cN` 不影響同 note 其他卡。
-- 媒體不會跟卡一起刪，server 每天 04:30（Asia/Taipei）回收 24 小時以上沒有任何卡引用的媒體並釋放配額。要重建卡就在那之前重送，或讓 `cubercard create` 重新上傳（回收後 `media/check` 會列為 missing）。
 - 排程：`cubercard schedule <id> --due 2026-12-01T09:00:00+08:00`（複習卡提前／延後）、`--new-position 0`（新卡排最前）、`--reset`（變回新卡）。CLI 會先讀 `state_version`；回 409 表示手機剛同步改過，CLI 會印出目前狀態，重新判斷再跑，不要硬蓋。
-- 每牌組每日新卡數：`cubercard decks set <id> --new-per-day 10`。
+- 每牌組每日新卡數：`cubercard decks set <id> --new-per-day 10`（只管這個牌組自己的卡）。
+
+### 暫停與刪除的差別
+
+| | 暫停 | 刪除 |
+|---|---|---|
+| 什麼時候用 | 卡沒錯，只是使用者現在不想看（太簡單、太難、沒興趣） | 卡本身錯了：建錯、重複、要重做 |
+| 指令 | `cubercard cards suspend <id> --reason too_easy`（`too_easy`、`too_hard`、`not_interested`、`agent`、`import`）；`cubercard cards unsuspend <id>` | `cubercard cards delete <id>` |
+| 留下什麼 | 卡、進度、**暫停理由**都留著。使用者在 app 暫停的理由是給 agent 看的回饋：`cards list --json` 的 `suspended`、`suspend_reason`，做下一批卡時參考（例如太簡單的詞族不再做） | 卡進垃圾桶，7 天後連進度一起清掉 |
+
+### 刪除與垃圾桶
+
+- `cubercard cards delete <id>`：卡**進垃圾桶，7 天內** `cubercard cards restore <id>` 可以連進度一起拿回來。卡在垃圾桶時 app、`cards list`、牌組卡數都看不到它。
+- `cubercard decks delete <id>`：**牌組連同所有子牌組和裡面所有的卡**一起進垃圾桶；`cubercard decks restore <id>` 整棵拿回來。原上層已經不在就回到最上層（CLI 印 warning）；名字和現有兄弟撞名會自動加「 (2)」。
+- 卡的牌組在垃圾桶時，`cards restore` 會失敗（409 `deck_deleted`），CLI 會印出要跑的 `decks restore`。
+- `cubercard trash list`：看垃圾桶（被刪的牌組只列根，附子牌組數與卡數；單獨刪的卡列 term 與牌組），各項的 `purge_at` 是清掉的時間。
+- **`--purge` 才是真的刪**：`cards delete <id> --purge`、`decks delete <id> --purge`、`trash empty` 直接永久刪除，進度與複習紀錄一起消失，無法復原。一定要先問過使用者、得到明確同意才用；平常刪除都用預設（進垃圾桶）。
+- 同一份 manifest（同 `batch_id`）重送：卡已永久刪除就重建；卡還在垃圾桶就先永久刪掉那張（含進度）再建新卡。要的是原本的進度就用 `restore`，不要重送。cloze 刪一張 `:cN` 不影響同 note 其他卡。
+- 媒體不會跟卡一起刪，server 每天 04:30（Asia/Taipei）先清掉過期的垃圾桶，再回收 24 小時以上沒有任何卡引用的媒體並釋放配額（垃圾桶裡的卡仍算引用）。回收後要再用就讓 `cubercard create` 重新上傳（`media/check` 會列為 missing）。
 
 ## 出錯怎麼讀
 
@@ -191,12 +233,16 @@ CLI 原文印出 server 的 `error` 代碼與 `detail`，部分錯誤另附欄�
 | `media_not_uploaded`（400） | `missing` 列出還沒上傳的 sha256；用 `filename` 讓 CLI 上傳，或確認 sha256 沒寫錯 |
 | `hash_mismatch`（400） | 檔案在上傳途中變了；重跑 |
 | `unauthorized`（401） | key 錯了或被撤銷；請使用者產生新 key，`cubercard auth` |
-| `unknown_deck`（404） | 先 `cubercard decks create` |
+| `unknown_deck`（404） | 先 `cubercard decks create`，或在 `decks.json` 補上 |
+| `invalid_parent`（400） | 上層不存在、是自己或自己的子孫，或超過 5 層；換一個上層 |
+| `deck_exists`（409） | 牌組 id 已存在；`cubercard decks` 看不到就是在垃圾桶，`cubercard decks restore <id>` |
+| `deck_name_taken`（409） | 同一個上層底下已有同名牌組；改名或用那個既有牌組 |
+| `deck_deleted`（409） | 要復原的卡，它的牌組在垃圾桶；`cubercard decks restore <deck_id>` |
+| `card_exists`（409） | 搬卡的目標牌組已有同 `external_key` 的卡；先問使用者留哪張 |
 | `batch_conflict`（409） | 這個 `batch_id` 已送過不同內容；新內容換新的 `batch_id` |
 | `content_conflict`（409） | 見「冪等」；整批沒寫，不要另造 key |
 | `concurrent_write`（409） | 有另一個請求同時在建同一批；重跑 |
 | `version_conflict`（409） | 讀完之後被手機改過；重新讀再決定 |
-| `has_history`（409） | 要刪的卡有複習紀錄（附 `reviews` 筆數）；改用 suspend，或確認後加 `--force` |
 | `retry_upload`（503） | 上傳時共用的媒體剛好被回收；重跑 `create` |
 | `too_many_cards`、`payload_too_large`（413） | 一般由 CLI 自動切批；單張卡太大就縮短文字，單檔超過 20 MB 就壓縮 |
 | `quota_exceeded`（413） | 儲存配額用完，附用量；停下回報使用者 |

@@ -24,7 +24,7 @@ import zstandard
 
 from . import fsrs
 from .api import CliError
-from .manifest import KINDS, TEXT_TYPES, cloze_answers, cloze_indexes, cloze_plain
+from .manifest import DECKS_FILE, KINDS, MAX_DECK_DEPTH, TEXT_TYPES, cloze_answers, cloze_indexes, cloze_plain
 
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 COLLECTIONS = ("collection.anki21b", "collection.anki21", "collection.anki2")
@@ -179,8 +179,11 @@ def read_apkg(path: str | Path) -> Collection:
     note_types, decks = _schema18_models(conn) if "notetypes" in tables else _legacy_models(conn)
     notes = {nid: {"id": nid, "mid": mid, "fields": flds.split("\x1f"), "tags": tags.split()}
              for nid, mid, flds, tags in conn.execute("SELECT id, mid, flds, tags FROM notes")}
-    cards = [dict(zip(("id", "nid", "did", "ord", "type", "queue", "due"), r))
-             for r in conn.execute("SELECT id, nid, did, ord, type, queue, due FROM cards ORDER BY nid, ord")]
+    cards = [dict(zip(("id", "nid", "did", "ord", "type", "queue", "due", "odid"), r))
+             for r in conn.execute("SELECT id, nid, did, ord, type, queue, due, odid FROM cards ORDER BY nid, ord")]
+    for card in cards:
+        # A card in a filtered deck lives in odid; that is its real deck.
+        card["home"] = card["odid"] or card["did"]
     revlog: dict[int, list[dict]] = {}
     for rid, cid, ease, ivl, ms, rtype in conn.execute("SELECT id, cid, ease, ivl, time, type FROM revlog ORDER BY id"):
         revlog.setdefault(cid, []).append({"id": rid, "ease": ease, "ivl": ivl, "time": ms, "type": rtype})
@@ -383,6 +386,7 @@ class Converter:
         self.used_media: dict[str, str] = {}
         self.missing_media: set[str] = set()
         self.warnings: list[str] = []
+        self.home: dict[str, int | None] = {}  # external_key -> Anki deck id the card lives in
 
     def _media_block(self, kind: str, name: str, autoplay: bool | None = None) -> dict | None:
         if "/" in name or "\\" in name or name.startswith(".") or name not in self.col.media:
@@ -424,7 +428,7 @@ class Converter:
     def source(self, plan: TypePlan, card: dict | None) -> str:
         if plan.source:
             return plan.source
-        deck = self.col.decks.get(card["did"]) if card else None
+        deck = self.col.decks.get(card["home"]) if card else None
         return f"Anki: {deck}" if deck else "Anki import"
 
     def convert(self) -> list[tuple[dict, dict | None]]:
@@ -440,6 +444,10 @@ class Converter:
             plan.notes += 1
             anki_cards = cards_by_note.get(nid, [])
             made = self._cloze(plan, note, anki_cards) if plan.nt.is_cloze else self._basic(plan, note, anki_cards)
+            for card, anki in made:
+                # A cloze number without its own Anki card stays with the note's other cards.
+                owner = anki or (anki_cards[0] if anki_cards else None)
+                self.home[card["external_key"]] = owner["home"] if owner else None
             plan.cards += len(made)
             out += made
         return out
@@ -518,15 +526,81 @@ def order_key(item: tuple[dict, dict | None]) -> tuple:
     return (is_new, due, anki["nid"] if anki else 0, anki["ord"] if anki else 0, card["external_key"])
 
 
-def convert(path: str | Path, deck_id: str, out_dir: str | Path, mapping: dict | None = None,
+def deck_path(name: str) -> list[str]:
+    return [part.strip() or "(unnamed)" for part in name.split("::")]
+
+
+def anki_deck_id(path: list[str], by_path: dict[str, int]) -> str:
+    """``anki-<Anki deck id>`` when Anki has a deck for this path, else ``anki-path-<SHA-256 of A::B, 12 hex>``."""
+    full = "::".join(path)
+    if full in by_path:
+        return f"anki-{by_path[full]}"
+    return "anki-path-" + hashlib.sha256(full.encode("utf-8")).hexdigest()[:12]
+
+
+def deck_tree(col: Collection, used: set[int]) -> tuple[list[dict], dict[int, str]]:
+    """Anki ``A::B::C`` → three Cuber Card decks. Returns (decks.json entries top-down, Anki deck id → leaf deck id).
+    Only decks that hold cards and their ancestors are included."""
+    by_path = {"::".join(deck_path(name)): did for did, name in col.decks.items()}
+    nodes: dict[tuple[str, ...], dict] = {}
+    leaf: dict[int, str] = {}
+    for did in sorted(used):
+        path = deck_path(col.decks.get(did) or f"Anki deck {did}")
+        for depth in range(1, len(path) + 1):
+            prefix = tuple(path[:depth])
+            if prefix in nodes:
+                continue
+            if depth == len(path) and did not in col.decks:
+                deck_id = f"anki-{did}"
+            else:
+                deck_id = anki_deck_id(list(prefix), by_path)
+            parent = nodes[prefix[:-1]]["id"] if depth > 1 else None
+            nodes[prefix] = {"id": deck_id, "name": prefix[-1], "parent": parent}
+        leaf[did] = nodes[tuple(path)]["id"]
+    ordered = sorted(nodes.items(), key=lambda item: tuple(p.casefold() for p in item[0]))
+    return [node for _, node in ordered], leaf
+
+
+def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping: dict | None = None,
             batch_id: str | None = None, write: bool = True) -> dict:
+    """``deck_id`` given: every card goes to that deck, one ``manifest.json``, no ``decks.json``.
+    ``deck_id`` None: the Anki deck tree becomes ``decks.json``; one manifest per Anki deck that has cards
+    (``manifest.json`` when there is one, else ``manifest-<deck id>.json``), its ``deck_id`` being that deck."""
     col = read_apkg(path)
     plans = plan_types(col, mapping or {})
     conv = Converter(col, plans)
     items = sorted(conv.convert(), key=order_key)
-    manifest = {"batch_id": batch_id or f"anki:{col.source_sha256[:16]}", "deck_id": deck_id,
-                "cards": [card for card, _ in items]}
-    report = {"manifest": manifest, "plans": plans, "warnings": conv.warnings, "missing_media": sorted(conv.missing_media),
+    base_batch = batch_id or f"anki:{col.source_sha256[:16]}"
+    decks = None
+    if deck_id:
+        groups = {deck_id: [card for card, _ in items]}
+    else:
+        if not items:
+            raise ApkgError(f"{path}: no cards to import")
+        homeless = [card["external_key"] for card, _ in items if conv.home.get(card["external_key"]) is None]
+        if homeless:
+            raise ApkgError(f"no Anki deck for {', '.join(homeless[:5])}; give --deck to put every card in one deck")
+        decks, leaf = deck_tree(col, {conv.home[card["external_key"]] for card, _ in items})
+        groups = {}
+        for card, _ in items:
+            groups.setdefault(leaf[conv.home[card["external_key"]]], []).append(card)
+        for d in decks:
+            depth, parent = 1, d["parent"]
+            while parent:
+                depth += 1
+                parent = next(x["parent"] for x in decks if x["id"] == parent)
+            if depth > MAX_DECK_DEPTH:
+                conv.warnings.append(f"deck {d['id']} ({d['name']}) is level {depth}; the server allows {MAX_DECK_DEPTH}")
+    single = len(groups) == 1
+    manifests = []
+    for leaf_id, cards in groups.items():
+        manifests.append({
+            "deck_id": leaf_id,
+            "file": "manifest.json" if single else f"manifest-{leaf_id}.json",
+            "manifest": {"batch_id": base_batch if single else f"{base_batch}:{leaf_id}", "deck_id": leaf_id, "cards": cards},
+        })
+    report = {"manifests": manifests, "manifest": manifests[0]["manifest"] if single else None, "decks": decks,
+              "plans": plans, "warnings": conv.warnings, "missing_media": sorted(conv.missing_media),
               "media": sorted(conv.used_media), "collection": col.collection_name}
     if write:
         out = Path(out_dir)
@@ -534,10 +608,25 @@ def convert(path: str | Path, deck_id: str, out_dir: str | Path, mapping: dict |
         for name, member in conv.used_media.items():
             data = _maybe_zstd(col.zip.read(member))
             (out / "media" / name).write_bytes(data)
-        (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-        report["path"] = str(out / "manifest.json")
+        for m in manifests:
+            m["path"] = str(out / m["file"])
+            Path(m["path"]).write_text(json.dumps(m["manifest"], ensure_ascii=False, indent=2) + "\n")
+        if decks is not None:
+            report["decks_path"] = str(out / DECKS_FILE)
+            Path(report["decks_path"]).write_text(json.dumps(decks, ensure_ascii=False, indent=2) + "\n")
+        report["path"] = manifests[0]["path"] if single else None
     col.zip.close()
     return report
+
+
+def tree_lines(decks: list[dict], counts: dict[str, int]) -> list[str]:
+    depth: dict[str, int] = {}
+    lines = []
+    for d in decks:
+        depth[d["id"]] = depth[d["parent"]] + 1 if d["parent"] else 0
+        n = counts.get(d["id"], 0)
+        lines.append(f"  {'  ' * depth[d['id']]}{d['name']}  [{d['id']}]" + (f"  cards={n}" if n else ""))
+    return lines
 
 
 def preview_lines(report: dict) -> list[str]:
@@ -558,7 +647,14 @@ def preview_lines(report: dict) -> list[str]:
             for tmpl in plan.nt.templates:
                 front, back = plan.faces.get(tmpl.ord, ([], []))
                 lines.append(f"  template {tmpl.ord} {tmpl.name!r}: front={front} back={back}")
-    cards = report["manifest"]["cards"]
+    lines.append("")
+    if report["decks"] is None:
+        lines.append(f"deck: {report['manifests'][0]['deck_id']} (all cards; the Anki deck tree is not used)")
+    else:
+        counts = {m["deck_id"]: len(m["manifest"]["cards"]) for m in report["manifests"]}
+        lines.append(f"deck tree ({DECKS_FILE}, {len(report['decks'])} decks, {len(report['manifests'])} with cards):")
+        lines += tree_lines(report["decks"], counts)
+    cards = [c for m in report["manifests"] for c in m["manifest"]["cards"]]
     reviewed = sum(1 for c in cards if "state" in c)
     lines.append("")
     lines.append(f"total cards: {len(cards)} (with state: {reviewed}, new: {len(cards) - reviewed}, "

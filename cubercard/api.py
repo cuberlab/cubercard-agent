@@ -18,6 +18,7 @@ ENV_BASE = "CUBERCARD_API_BASE"
 MAX_RETRIES_429 = 5
 # Per-minute limits are retried; a longer Retry-After (the daily media limit) is reported instead.
 MAX_RETRY_WAIT_S = 90
+UNSET: Any = object()  # "argument not given", distinct from None (= JSON null)
 
 
 class CliError(Exception):
@@ -144,7 +145,8 @@ class Client:
         if body is not None:
             kwargs["content"] = json.dumps(body, ensure_ascii=False).encode()
             kwargs.setdefault("headers", {})["Content-Type"] = "application/json"
-        return self.request(method, path, ok=ok, **kwargs).json()
+        response = self.request(method, path, ok=ok, **kwargs)
+        return response.json() if response.content else {}
 
     # ---- endpoints ----
     def me(self) -> dict:
@@ -153,11 +155,44 @@ class Client:
     def decks(self) -> list[dict]:
         return self.json("GET", "/v1/decks")["decks"]
 
-    def create_deck(self, body: dict) -> dict:
+    def create_deck(self, name: str, *, id: str | None = None, parent_id: str | None = None,
+                    new_per_day: int | None = None, sort_order: int | None = None) -> dict:
+        body: dict[str, Any] = {"name": name}
+        for key, value in (("id", id), ("parent_id", parent_id), ("new_per_day", new_per_day), ("sort_order", sort_order)):
+            if value is not None:
+                body[key] = value
         return self.json("POST", "/v1/decks", body)
 
-    def patch_deck(self, deck_id: str, body: dict) -> dict:
+    def update_deck(self, deck_id: str, *, name: str | None = None, parent_id: Any = UNSET, new_per_day: int | None = None,
+                    sort_order: int | None = None, apply_to_subdecks: bool = False) -> dict:
+        """PATCH /decks/{id}. ``parent_id=None`` moves the deck to the top level; leave it out to keep the parent."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if parent_id is not UNSET:
+            body["parent_id"] = parent_id
+        if new_per_day is not None:
+            body["new_per_day"] = new_per_day
+            if apply_to_subdecks:
+                body["apply_to_subdecks"] = True
+        elif apply_to_subdecks:
+            raise CliError("apply_to_subdecks needs new_per_day")
+        if sort_order is not None:
+            body["sort_order"] = sort_order
+        if not body:
+            raise CliError("update_deck: nothing to change")
         return self.json("PATCH", f"/v1/decks/{_seg(deck_id)}", body)
+
+    def reorder_decks(self, parent_id: str | None, ids: list[str]) -> dict:
+        """Set sort_order 0..n for all siblings under parent_id (None = top level); ids must be that whole level."""
+        return self.json("POST", "/v1/decks/reorder", {"parent_id": parent_id, "ids": ids})
+
+    def delete_deck(self, deck_id: str, purge: bool = False) -> dict:
+        """The deck, its subdecks and their cards go to the trash; purge=True deletes them for good."""
+        return self.json("DELETE", f"/v1/decks/{_seg(deck_id)}", params={"purge": "1"} if purge else None)
+
+    def restore_deck(self, deck_id: str) -> dict:
+        return self.json("POST", f"/v1/decks/{_seg(deck_id)}/restore")
 
     def media_check(self, shas: list[str]) -> dict:
         present, missing = [], []
@@ -187,10 +222,21 @@ class Client:
     def patch_state(self, card_id: str, body: dict) -> dict:
         return self.json("PATCH", f"/v1/cards/{_seg(card_id)}/state", body)
 
-    def delete_card(self, card_id: str, force: bool = False) -> dict:
-        """Hard-delete a card. Without force the server answers 409 has_history when the card has reviews."""
-        return self.json("DELETE", f"/v1/cards/{_seg(card_id)}", params={"force": "1"} if force else None)
+    def delete_card(self, card_id: str, purge: bool = False) -> dict:
+        """Move a card to the trash (restorable for the retention period); purge=True deletes it and its history."""
+        return self.json("DELETE", f"/v1/cards/{_seg(card_id)}", params={"purge": "1"} if purge else None)
 
+    def restore_card(self, card_id: str) -> dict:
+        return self.json("POST", f"/v1/cards/{_seg(card_id)}/restore")
+
+    def move_card(self, card_id: str, deck_id: str) -> dict:
+        return self.json("PATCH", f"/v1/cards/{_seg(card_id)}", {"deck_id": deck_id})
+
+    def list_trash(self) -> dict:
+        return self.json("GET", "/v1/trash")
+
+    def empty_trash(self) -> dict:
+        return self.json("DELETE", "/v1/trash")
 
 def _seg(value: str) -> str:
     from urllib.parse import quote

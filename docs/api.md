@@ -30,13 +30,25 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 
 ## 牌組
 
+牌組是一棵樹：每個牌組有 `parent_id`（null = 最上層），最多 5 層（最上層算第 1 層）。名字只存自己這一層，**不能含 `::`**（含就 400 `invalid_field`）；要「English › Grace」就建兩個牌組，Grace 的 `parent_id` 指向 English。同一個上層底下名字不可重複（409 `deck_name_taken`）。母牌組自己也可以有卡。牌組只由 agent 透過 API／CLI 建立，app 不提供建牌組。
+
 | 端點 | 本文 | 回應 |
 |---|---|---|
-| `GET /v1/decks` | — | `{"decks": [Deck]}` |
-| `POST /v1/decks` | `{"name", "id"?, "new_per_day"?, "sort_order"?}` | 201 `Deck`；id 已存在 409 `deck_exists` |
-| `PATCH /v1/decks/{id}` | `name`、`new_per_day`、`sort_order` 任選 | 200 `Deck` |
+| `GET /v1/decks` | — | `{"decks": [Deck]}`，不含垃圾桶裡的牌組 |
+| `POST /v1/decks` | `{"name", "id"?, "parent_id"?, "new_per_day"?, "sort_order"?}` | 201 `Deck`；id 已存在 409 `deck_exists` |
+| `PATCH /v1/decks/{id}` | `name`、`parent_id`（null = 移到最上層）、`new_per_day`、`sort_order` 任選；`new_per_day` 可加 `"apply_to_subdecks": true` | 200 `Deck` |
+| `POST /v1/decks/reorder` | `{"parent_id", "ids": [...]}` | 把同一個上層底下的兄弟依 `ids` 順序重設 `sort_order` 0..n；`ids` 必須正好是那一層的全部牌組，否則 400 |
+| `DELETE /v1/decks/{id}[?purge=1]` | — | 牌組、所有子孫牌組與它們的卡一起進垃圾桶；`?purge=1` 直接硬刪。見「垃圾桶」 |
+| `POST /v1/decks/{id}/restore` | — | 從垃圾桶復原整棵（牌組、子孫牌組、卡片）。原上層已不在就回到最上層並回 `restored_to_root: true`；名字和現有兄弟衝突就在後面加「 (2)」 |
 
-`Deck = {"id", "name", "new_per_day", "card_count", "sort_order"}`。`id` 要符合 `[a-z0-9][a-z0-9_-]{0,63}`，不給由 server 產生；`new_per_day` 0–9999，預設 20。改 `new_per_day` 以 server 當下時間參與「後寫者勝」，手機之後送來較舊的設定不會蓋掉。
+`Deck = {"id", "name", "parent_id", "new_per_day", "card_count", "sort_order"}`。
+
+- `id` 要符合 `[a-z0-9][a-z0-9_-]{0,63}`，不給由 server 產生。
+- `card_count` 只算這個牌組自己的卡，不含子孫、不含垃圾桶。
+- `sort_order` 只在同一個上層的兄弟之間排序；新建預設 = 兄弟最大值 + 1。
+- 移動（改 `parent_id`）時目標不能是自己或自己的子孫、不能超過 5 層，否則 400 `invalid_parent`。子孫跟著一起移。
+- `new_per_day` 0–9999，預設 20，**只管這個牌組自己的卡，不蓋子孫**。複習母牌組 = 子樹裡每個牌組各自依自己的上限取新卡再合起來；app 今日頁母牌組那列顯示子孫加總。要一次改整棵就帶 `apply_to_subdecks: true`，server 寫進每個子孫。改 `new_per_day` 以 server 當下時間參與「後寫者勝」，手機之後送來較舊的設定不會蓋掉。
+- 改名、移動、排序走 change_log，手機下次 sync 拿到。
 
 ## 媒體
 
@@ -51,7 +63,7 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 
 配額：每人儲存 5 GiB（以每人上傳過的檔案大小總和計算），超過回 413 `quota_exceeded` 並附 `storage_used_bytes`、`storage_quota_bytes`。
 
-回收：媒體不跟卡一起刪。server 每天 04:30（Asia/Taipei，UTC 20:30）回收「這個帳號已沒有任何卡引用、且上傳超過 24 小時」的檔案並釋放配額；`DELETE`／`PATCH /v1/cards/{id}` 結束時也會對你的帳號順手跑一次。所以先上傳、24 小時內送 batch 不會被收走；回收後要再用就重新上傳（`media/check` 會列為 `missing`）。同一份檔案別的帳號也有時，只扣你的那份。上傳期間共用的檔案剛好被回收時回 503 `retry_upload`，重傳即可。
+回收：媒體不跟卡一起刪。server 每天 04:30（Asia/Taipei，UTC 20:30）先清掉垃圾桶裡過期的卡與牌組，再回收「這個帳號已沒有任何卡引用、且上傳超過 24 小時」的檔案並釋放配額（垃圾桶裡的卡仍算引用）；`DELETE`／`PATCH /v1/cards/{id}` 結束時也會對你的帳號順手跑一次。所以先上傳、24 小時內送 batch 不會被收走；回收後要再用就重新上傳（`media/check` 會列為 `missing`）。同一份檔案別的帳號也有時，只扣你的那份。上傳期間共用的檔案剛好被回收時回 503 `retry_upload`，重傳即可。
 
 ## 建卡：`POST /v1/cards/batch`
 
@@ -109,18 +121,37 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 |---|---|
 | `GET /v1/cards?deck_id=&external_key=&after=&limit=&history=1` | 依 id 排序分頁；`limit` 1–500（預設 100）；`next_after` 不是 null 就帶進 `after` 取下一頁 |
 | `GET /v1/cards/{id}` | 單張卡，含 `history` |
-| `PATCH /v1/cards/{id}` | 改卡面：`term`、`definition`、`context`、`source`、`pos`、`template`、`lang`、`direction`、`front`、`back` 任選，可帶 `based_on_content_version`；成功 `content_version + 1`。不能改 `kind`、`deck`、`external_key`。版本不符 409 `version_conflict` 附目前卡片 |
+| `PATCH /v1/cards/{id}` | 改卡面：`term`、`definition`、`context`、`source`、`pos`、`template`、`lang`、`direction`、`front`、`back` 任選，可帶 `based_on_content_version`；成功 `content_version + 1`。不能改 `kind`、`external_key`。版本不符 409 `version_conflict` 附目前卡片 |
+| `PATCH /v1/cards/{id}`（`{"deck_id": "…"}`） | 搬到另一個牌組：目標要存在且不在垃圾桶；目標已有同 `external_key` 回 409 `card_exists`。卡 id 不變（所以搬過的卡 id 不再等於用新 `deck_id` 導出的值）；原本的 manifest 之後重送到舊牌組會在舊牌組另建一張 |
 
-### 刪卡：`DELETE /v1/cards/{id}[?force=1]`
+### 刪卡：`DELETE /v1/cards/{id}[?purge=1]`
 
-硬刪卡片，連同排程狀態、媒體引用、該卡的裝置事件（暫停／狀態）。用在建錯、重複、要重做的卡；學過但暫時不想看的卡用暫停。
+預設**進垃圾桶**，保留 7 天可復原；用在建錯、重複、要重做的卡（卡本身錯了）。學過但暫時不想看的卡用暫停：暫停會留下理由（`too_easy`、`too_hard`、`not_interested`…）給 agent 看，卡與進度都還在。
 
-- 成功 200：`{"id": "c_…", "deleted": true, "media_released": ["<sha256>", …], "storage_used_bytes": 0, "storage_quota_bytes": 5368709120}`。`media_released` 是這次順手回收的媒體（這個帳號超過 24 小時、已沒有任何卡引用的檔案，可能包含別張卡先前留下的）。
-- 卡片有作答紀錄、沒帶 `force=1`：409 `has_history`，附 `reviews`（筆數）與 `card`（含 `history`），什麼都沒刪。
-- `force=1`：作答紀錄一起刪，無法復原。
+- 進垃圾桶 200：`{"id": "c_…", "deleted": true, "purge_at": "…Z"}`。垃圾桶裡的卡在 `GET /v1/cards`、bootstrap、sync、`card_count` 都看不到。
+- `?purge=1`：直接硬刪，連同排程狀態、媒體引用、作答紀錄、該卡的裝置事件，無法復原。回 `{"id", "deleted": true, "media_released": ["<sha256>", …], "storage_used_bytes", "storage_quota_bytes"}`；`media_released` 是這次順手回收的媒體（這個帳號超過 24 小時、已沒有任何卡引用的檔案，可能包含別張卡先前留下的）。
+- 沒有 `has_history` 檢查，也沒有 `force`（0.1.x 的行為已取消）。
 - 找不到或不是自己的卡：404 `not_found`。
-- 刪掉後，同 `batch_id`、同內容的 manifest 重送會重建這張卡（`status: "created"`，同一個 card id，manifest 的 `history`／`state` 重新寫入）；同批其他還在的卡回 `existing`。cloze 刪一張 `:cN` 不影響同 note 的其他卡。
-- 手機下次 `/v1/sync` 從 `removed_card_ids` 得知這張卡被刪。
+- 同 `batch_id`、同內容的 manifest 重送：卡已硬刪就重建（同一個 card id，manifest 的 `history`／`state` 重新寫入）；卡在垃圾桶裡就先硬刪那張（含進度與紀錄）再建新卡，回應 `replaced_trashed` 列出這些 id。要保留進度請用 `restore`，不要重送。cloze 刪一張 `:cN` 不影響同 note 的其他卡。
+- 手機下次 `/v1/sync` 從 `removed_card_ids` 得知這張卡不見了。
+
+### 復原：`POST /v1/cards/{id}/restore`
+
+把單張卡從垃圾桶拿回來（進度、紀錄都在）。它的牌組也在垃圾桶時回 409 `deck_deleted`（附 `deck_id`），改復原那個牌組。
+
+## 垃圾桶
+
+刪卡與刪牌組預設都進垃圾桶，保留 `retention_days`（預設 7 天）後由 server 每天 04:30（Asia/Taipei）清掉，接著回收不再被引用的媒體。垃圾桶裡的卡仍算持有它們的媒體。
+
+| 端點 | 說明 |
+|---|---|
+| `GET /v1/trash` | `{"retention_days", "items"}`，依 `deleted_at` 新到舊 |
+| `DELETE /v1/trash` | 清空：全部硬刪，然後跑這個帳號的媒體回收；無法復原 |
+
+`items` 兩種：
+
+- `{"type": "deck", "id", "name", "parent_id", "deck_count", "card_count", "deleted_at", "purge_at"}`：被刪的那棵子樹的根（子孫牌組與卡不另列）。
+- `{"type": "card", "id", "deck_id", "deck_name", "sort_key", "term", "deleted_at", "purge_at"}`：單獨刪掉的卡。
 
 **Card**：`id`、`deck_id`、`note_id`、`external_key`、`kind`、`template`、`lang`、`direction`、`sort_key`、`front`、`back`、`content_version`、`state`、`suspended`、`suspend_reason`、`suspended_at`、`history`（`[{reviewed_at, rating, duration_ms, source}]`）。
 
@@ -150,7 +181,7 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 ## 同步（手機用，agent 通常不需要）
 
 - `GET /v1/bootstrap`：全部牌組、卡片（含 history）、媒體、`cursor`、`scheduler`（FSRS-5 參數）、儲存用量。
-- `POST /v1/sync`：`{"device_id", "cursor", "events": [...]}`（≤ 1,000 事件），回 `accepted`、`duplicate`、`rejected`、`conflicts`、新 `cursor` 與之後的變動；`removed_card_ids` 是 cursor 之後被刪掉的卡。
+- `POST /v1/sync`：`{"device_id", "cursor", "events": [...]}`（≤ 1,000 事件），回 `accepted`、`duplicate`、`rejected`、`conflicts`、新 `cursor` 與之後的變動；`removed_card_ids`、`removed_deck_ids` 是 cursor 之後被刪掉或進垃圾桶的卡與牌組。牌組 JSON 帶 `parent_id`。
 
 ## 錯誤代碼
 
@@ -162,13 +193,16 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 | 400 | `hash_mismatch`、`length_mismatch`、`empty_media`、`invalid_sha256` | 上傳內容和路徑的 sha256 或 Content-Length 不符 | 重算 hash 重傳 |
 | 401 | `unauthorized` | key 錯誤或已撤銷 | 到 app 設定頁產生新 key，重跑 `cubercard auth` |
 | 403 | `session_required` | API key 不能打這個端點 | 改用 app |
+| 400 | `invalid_parent` | 上層不存在、是自己或自己的子孫，或超過 5 層 | 換一個上層 |
 | 404 | `unknown_deck`、`not_found` | 牌組／卡片／媒體不存在 | 先建牌組或確認 id |
-| 409 | `deck_exists` | 牌組 id 已存在 | 直接用既有牌組 |
+| 409 | `deck_exists` | 牌組 id 已存在（`GET /v1/decks` 看不到就是在垃圾桶裡） | 直接用既有牌組；在垃圾桶就 `POST /v1/decks/{id}/restore` |
+| 409 | `deck_name_taken` | 同一個上層底下已有同名牌組 | 改名，或用那個既有牌組 |
+| 409 | `deck_deleted` | 要復原的卡，它的牌組在垃圾桶，附 `deck_id` | 復原那個牌組 |
+| 409 | `card_exists` | 搬卡的目標牌組已有同 `external_key` 的卡 | 先決定留哪張 |
 | 409 | `batch_conflict` | 同 `batch_id` 已送過不同內容 | 新內容用新 `batch_id` |
 | 409 | `content_conflict` | 既有 `external_key` 內容不同，附 `external_keys`；整批沒寫 | 確認是要改既有卡（`PATCH`）還是 key 取錯 |
 | 409 | `id_collision`、`concurrent_write` | 導出 ID 碰撞；或同時有另一個請求建同一批卡 | `concurrent_write` 重跑同一批即可；`id_collision` 回報 |
 | 409 | `version_conflict` | 狀態或卡面在你讀取後被改過，附目前 `state`／`card` | 重新讀再決定 |
-| 409 | `has_history` | 要刪的卡有作答紀錄，附 `reviews`、`card`；什麼都沒刪 | 改用暫停，或確認後帶 `?force=1` |
 | 411 | `length_required` | 上傳沒帶 Content-Length | 帶上 |
 | 413 | `too_many_cards`、`payload_too_large`、`quota_exceeded` | 一批超過 500 張、本文超過 2 MB、單檔超過 20 MB，或儲存配額用完 | 切批；壓縮媒體；配額用完找管理者 |
 | 415 | `unsupported_media_type` | Content-Type 不是 audio／video／image | 修 Content-Type |

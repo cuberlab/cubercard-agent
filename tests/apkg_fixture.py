@@ -35,7 +35,7 @@ CARDS = [
 ]
 
 
-def _common(conn):
+def _common(conn, card_decks=None):
     conn.executescript("""
         CREATE TABLE notes (id integer primary key, guid text, mid integer, mod integer, usn integer, tags text,
                             flds text, sfld integer, csum integer, flags integer, data text);
@@ -50,7 +50,9 @@ def _common(conn):
     conn.execute("INSERT INTO notes VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                  (CLOZE_NID, "g2", CLOZE_MID, 0, 0, "", "\x1f".join([CLOZE_TEXT, CLOZE_EXTRA]), 0, 0, 0, ""))
     for cid, nid, did, ord_, type_, queue, due in CARDS:
-        conn.execute("INSERT INTO cards VALUES (?,?,?,?,0,0,?,?,?,0,0,0,0,0,0,0,0,'')", (cid, nid, did, ord_, type_, queue, due))
+        where = (card_decks or {}).get(cid, did)
+        did, odid = where if isinstance(where, tuple) else (where, 0)
+        conn.execute("INSERT INTO cards VALUES (?,?,?,?,0,0,?,?,?,0,0,0,0,0,0,?,0,'')", (cid, nid, did, ord_, type_, queue, due, odid))
     for rid, cid, ease, ivl, ms, type_ in REVLOG:
         conn.execute("INSERT INTO revlog VALUES (?,?,0,?,?,0,0,?,?)", (rid, cid, ease, ivl, ms, type_))
 
@@ -59,7 +61,7 @@ BASIC_TMPL = ("Card 1", "{{Front}}", "{{FrontSide}}<hr id=answer>{{Back}}")
 CLOZE_TMPL = ("Cloze", "{{cloze:Text}}", "{{cloze:Text}}<br>{{Back Extra}}")
 
 
-def legacy_db(path: Path) -> None:
+def legacy_db(path: Path, decks=None, card_decks=None) -> None:
     conn = sqlite3.connect(path)
     conn.execute("CREATE TABLE col (id integer primary key, crt integer, mod integer, scm integer, ver integer, dty integer,"
                  " usn integer, ls integer, conf text, models text, decks text, dconf text, tags text)")
@@ -69,9 +71,9 @@ def legacy_db(path: Path) -> None:
         str(CLOZE_MID): {"name": "Cloze", "type": 1, "flds": [{"name": "Text", "ord": 0}, {"name": "Back Extra", "ord": 1}],
                          "tmpls": [{"name": CLOZE_TMPL[0], "ord": 0, "qfmt": CLOZE_TMPL[1], "afmt": CLOZE_TMPL[2]}]},
     }
-    decks = {str(DECK_ID): {"name": "French"}}
+    decks = {str(did): {"name": name} for did, name in (decks or {DECK_ID: "French"}).items()}
     conn.execute("INSERT INTO col VALUES (1,0,0,0,11,0,0,0,'{}',?,?,'{}','{}')", (json.dumps(models), json.dumps(decks)))
-    _common(conn)
+    _common(conn, card_decks)
     conn.commit()
     conn.close()
 
@@ -97,7 +99,7 @@ def pb_bytes(field: int, value: bytes | str) -> bytes:
     return _varint(field << 3 | 2) + _varint(len(data)) + data
 
 
-def schema18_db(path: Path) -> None:
+def schema18_db(path: Path, decks=None, card_decks=None) -> None:
     conn = sqlite3.connect(path)
     conn.executescript("""
         CREATE TABLE col (id integer primary key, crt integer, mod integer, scm integer, ver integer, dty integer,
@@ -116,25 +118,28 @@ def schema18_db(path: Path) -> None:
             conn.execute("INSERT INTO fields VALUES (?,?,?,?)", (mid, i, f, b""))
         conn.execute("INSERT INTO templates VALUES (?,?,?,0,0,?)",
                      (mid, 0, tmpl[0], pb_bytes(1, tmpl[1]) + pb_bytes(2, tmpl[2])))
-    conn.execute("INSERT INTO decks VALUES (?,?,0,0,x'',x'')", (DECK_ID, "Languages\x1fFrench"))
-    _common(conn)
+    for did, name in (decks or {DECK_ID: "Languages::French"}).items():
+        conn.execute("INSERT INTO decks VALUES (?,?,0,0,x'',x'')", (did, name.replace("::", "\x1f")))
+    _common(conn, card_decks)
     conn.commit()
     conn.close()
 
 
-def build(tmp: Path, fmt: str = "legacy") -> Path:
+def build(tmp: Path, fmt: str = "legacy", decks: dict[int, str] | None = None,
+          card_decks: dict[int, int | tuple[int, int]] | None = None) -> Path:
+    """decks: Anki deck id -> full name (``A::B``); card_decks: card id -> deck id, or (filtered deck id, home deck id)."""
     db = tmp / f"collection-{fmt}.db"
     out = tmp / f"deck-{fmt}.apkg"
     zstd = zstandard.ZstdCompressor()
     with zipfile.ZipFile(out, "w") as zf:
         if fmt == "legacy":
-            legacy_db(db)
+            legacy_db(db, decks, card_decks)
             zf.write(db, "collection.anki2")
             zf.writestr("media", json.dumps({"0": "bonjour.mp3", "1": "map.png"}))
             zf.writestr("0", AUDIO)
             zf.writestr("1", IMAGE)
         else:
-            schema18_db(db)
+            schema18_db(db, decks, card_decks)
             legacy_db(tmp / "dummy.db")  # new exports also carry a placeholder legacy collection
             zf.write(tmp / "dummy.db", "collection.anki2")
             zf.writestr("collection.anki21b", zstd.compress(db.read_bytes()))

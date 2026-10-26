@@ -199,21 +199,122 @@ JSON
 run cards update "$TEXT_ID" --manifest-card "$WORK/update.json" --media-dir "$WORK/media"
 has "content_version 1 → 2"
 
-step "cards delete (history needs --force; sync reports the removal)"
-EXPECT_FAIL=1 run cards delete "$REVIEW_ID"
-has "這張卡有 3 筆複習紀錄，確定要連進度一起刪請加 --force"
+step "cards delete → trash → restore → purge (sync reports the removal)"
+run cards delete "$REVIEW_ID"
+has "$REVIEW_ID: moved to the trash; restore before .* with \`cubercard cards restore $REVIEW_ID\`"
+run cards list --deck french --json
+jq -e --arg id "$REVIEW_ID" 'all(.[]; .id != $id)' "$WORK/out" >/dev/null || fail "trashed card still listed"
+run trash list --json
+jq -e --arg id "$REVIEW_ID" '.retention_days == 7 and any(.items[]; .type == "card" and .id == $id and .purge_at != null)' \
+  "$WORK/out" >/dev/null || fail "trash lacks the card"
+run cards restore "$REVIEW_ID"
+has "$REVIEW_ID: restored from the trash"
 run cards get "$REVIEW_ID"
-run cards delete "$REVIEW_ID" --force
-has "$REVIEW_ID: deleted（釋放媒體 0 個）"
+jq -e '(.history | length) == 3' "$WORK/out" >/dev/null || fail "restore lost history"
+run cards delete "$REVIEW_ID" --purge
+has "$REVIEW_ID: permanently deleted with its progress and history"
 EXPECT_FAIL=1 run cards get "$REVIEW_ID"
 has "404 not_found"
+EXPECT_FAIL=1 run cards delete "$REVIEW_ID" --force
+has "unrecognized arguments: --force"
 code="$(curl -sS -o "$WORK/body" -w '%{http_code}' -X POST "$BASE/v1/sync" -H "authorization: Bearer $KEY" \
   -H 'content-type: application/json' -d '{"cursor": "0", "events": []}')"
 [[ "$code" == 200 ]] && jq -e --arg id "$REVIEW_ID" '.removed_card_ids | index($id) != null' "$WORK/body" >/dev/null || fail "sync lacks removed_card_ids"
 echo "  /v1/sync removed_card_ids contains $REVIEW_ID"
 
+step "subdecks: create / tree / move / rename / new-per-day for the subtree"
+run decks create English --id english
+run decks create Grace --id grace --parent english --new-per-day 10
+has "created deck grace \(Grace, new/day 10, under english\)"
+run decks create Kids --id kids --parent grace
+EXPECT_FAIL=1 run decks create "English::Grace"
+has "cannot contain '::'"
+EXPECT_FAIL=1 run decks create Grace --id grace2 --parent english
+has "409 deck_name_taken"
+run decks tree
+has "^English +english +0 +0 +20$"; has "^  Grace +grace +0 +0 +10$"; has "^    Kids +kids +0 +0 +20$"
+run decks list
+has "^kids +Kids +grace +20 +0"
+run decks move kids --to root
+has "deck kids \(Kids\): now at the top level"
+EXPECT_FAIL=1 run decks move english --to grace
+has "400 invalid_parent"
+run decks move kids --to grace
+has "now under grace"
+run decks rename kids "Kids 2"
+has "deck kids: renamed to Kids 2"
+run decks set english --new-per-day 7 --apply-to-subdecks
+run decks list --json
+jq -e '[.[] | select(.id == "english" or .id == "grace" or .id == "kids") | .new_per_day] == [7, 7, 7]' "$WORK/out" >/dev/null \
+  || fail "apply_to_subdecks did not reach every subdeck"
+echo "  new_per_day 7 on english, grace, kids"
+
+step "apkg with an Anki deck tree → decks.json → create makes the decks, then cards (idempotent)"
+mkdir -p "$WORK/tree"
+(cd "$REPO" && uv run --quiet python -c "import sys; from pathlib import Path; from tests.apkg_fixture import build
+print(build(Path(sys.argv[1]), 'schema18', decks={10: 'Languages::English::Grace', 12: 'Languages::English'},
+            card_decks={3001: 10, 3002: 12, 3003: 12}))" "$WORK/tree") >"$WORK/tree-path"
+TOP="anki-path-$(printf '%s' Languages | shasum -a 256 | cut -c1-12)"
+run apkg-to-manifest "$(cat "$WORK/tree-path")" --out "$WORK/anki-tree" --preview
+has "deck tree \(decks.json, 3 decks, 2 with cards\)"; has "^  Languages  \[$TOP\]$"; has "^      Grace  \[anki-10\]  cards=1$"
+run apkg-to-manifest "$(cat "$WORK/tree-path")" --out "$WORK/anki-tree"
+jq -e --arg top "$TOP" '. == [{id: $top, name: "Languages", parent: null}, {id: "anki-12", name: "English", parent: $top},
+  {id: "anki-10", name: "Grace", parent: "anki-12"}]' "$WORK/anki-tree/decks.json" >/dev/null || fail "bad decks.json"
+run create --manifest "$WORK/anki-tree/manifest-anki-12.json" --dry-run
+has "deck anki-10 \(Grace\): would be created under anki-12"; has "decks: 3 to create, 0 already exist"
+run create --manifest "$WORK/anki-tree/manifest-anki-12.json"
+has "decks: 3 created, 0 already exist"; [[ "$(count '^created ')" == 2 ]] || fail "expected 2 cards in anki-12"
+run create --manifest "$WORK/anki-tree/manifest-anki-10.json"
+has "decks: 0 created, 3 already exist"; [[ "$(count '^created ')" == 1 ]] || fail "expected 1 card in anki-10"
+run create --manifest "$WORK/anki-tree/manifest-anki-10.json"
+has "replay"; [[ "$(count '^existing ')" == 1 ]] || fail "rerun should be existing"
+run decks tree
+has "^Languages +$TOP +0 +3 "; has "^  English +anki-12 +2 +3 "; has "^    Grace +anki-10 +1 +1 "
+run decks rename anki-12 "English (Anki)"
+run create --manifest "$WORK/anki-tree/manifest-anki-10.json"
+has "warning: deck anki-12 is named 'English \(Anki\)' on the server, decks.json says 'English'; not changed"
+run decks list --json
+jq -e '.[] | select(.id == "anki-12") | .name == "English (Anki)"' "$WORK/out" >/dev/null || fail "create changed a deck name"
+
+step "cards move, deck delete → trash (whole subtree) → restore → purge, trash empty"
+MOVE_ID="$(cc cards list --deck anki-10 --json | jq -r '.[0].id')"
+run cards move "$MOVE_ID" --to grace
+has "$MOVE_ID: moved to deck grace"
+run cards list --deck grace --json
+jq -e --arg id "$MOVE_ID" 'any(.[]; .id == $id)' "$WORK/out" >/dev/null || fail "moved card not in grace"
+run decks delete english
+has "deck english: moved to the trash with its subdecks and cards"
+run decks list --json
+jq -e 'all(.[]; .id != "english" and .id != "grace" and .id != "kids")' "$WORK/out" >/dev/null || fail "subtree still listed"
+run trash list --json
+jq -e '.items[0] | .type == "deck" and .id == "english" and .deck_count == 3 and .card_count == 1' "$WORK/out" >/dev/null \
+  || fail "trash should list english (3 decks, 1 card) first"
+jq -e 'all(.items[]; .id != "grace" and .id != "kids")' "$WORK/out" >/dev/null || fail "trash lists subdecks separately"
+run trash list
+has "^deck +english +English"
+run decks restore english
+has "deck english.*: restored with its subdecks and cards"
+run decks tree
+has "^English +english +0 +1 +7$"; has "^    Kids 2 +kids "
+run cards list --deck grace --json
+jq -e --arg id "$MOVE_ID" 'any(.[]; .id == $id)' "$WORK/out" >/dev/null || fail "restore lost the moved card"
+run decks delete kids --purge
+has "deck kids: permanently deleted"
+run trash list --json
+jq -e 'all(.items[]; .id != "kids")' "$WORK/out" >/dev/null || fail "purged deck in the trash"
+TRASH_ID="$(cc cards list --deck anki-12 --json | jq -r '.[0].id')"
+run cards delete "$TRASH_ID"
+run trash list
+has "^trash: 1 item\(s\), kept 7 days$"; has "^card +$TRASH_ID"
+run trash empty
+has "trash emptied"
+run trash list
+has "^trash: 0 item\(s\)"
+EXPECT_FAIL=1 run cards restore "$TRASH_ID"
+has "404 not_found"
+
 step "status"
 run status
-has "account: $SUB@example.com"; has "storage: "; has "^reading +Reading +12 +1003"
+has "account: $SUB@example.com"; has "storage: "; has "^Reading +reading +12 +1003 +1003$"
 
 printf '\nE2E OK\n'
