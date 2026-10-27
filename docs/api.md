@@ -210,3 +210,5 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 | 429 | `rate_limited` | 超過每分鐘 300 次或每日 2,000 檔 | 等 `Retry-After` 秒數 |
 | 500 | `internal` | server 錯誤 | 原文回報 |
 | 503 | `retry_upload` | 同一媒體正在上傳、配額保留逾期，或共用物件在驗證期間被回收 | 依 `Retry-After` 重傳同一個檔；CLI 最多重試 5 次 |
+
+牌組搬移與匯入會在寫入交易內重新檢查目的牌組；目的已刪除時回 `unknown_deck`，牌組樹在同時搬移形成循環或超過深度時回 `invalid_parent`，先重讀牌組樹再決定。`card_delete`／`card_restore` 以事件 id 去重後才改資料，事件 id 不決定操作先後；同 id 重送不會再次刪除或還原。匯入遇到已搬入的卡片會回其實際 `note_id`。媒體上傳的暫存保留以帳號與 SHA-256 為單位；不同帳號共用內容雜湊不會互相擋住，內容仍須通過雜湊驗證。
