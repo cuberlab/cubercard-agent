@@ -240,7 +240,8 @@ def test_deck_names_with_double_colon_are_rejected_locally(server, capsys):
 
 
 @pytest.mark.parametrize("argv, body, printed", [
-    (["decks", "move", "grace", "--to", "root"], {"parent_id": None}, "deck grace (Grace): now at the top level"),
+    (["decks", "move", "grace", "--top-level"], {"parent_id": None}, "deck grace (Grace): now at the top level"),
+    (["decks", "move", "grace", "--to", "root"], {"parent_id": "root"}, "deck grace (Grace): now under root"),
     (["decks", "move", "grace", "--to", "turkish"], {"parent_id": "turkish"}, "deck grace (Grace): now under turkish"),
     (["decks", "rename", "grace", "Grace 2"], {"name": "Grace 2"}, "deck grace: renamed to Grace 2"),
     (["decks", "set", "english", "--new-per-day", "5", "--apply-to-subdecks"], {"new_per_day": 5, "apply_to_subdecks": True},

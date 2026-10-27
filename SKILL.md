@@ -34,7 +34,7 @@ description: >
 | 看樹（自己的卡數、含子牌組的卡數、每日新卡） | `cubercard decks tree` |
 | 建子牌組 | `cubercard decks create "Grace" --id grace --parent english` |
 | 改名 | `cubercard decks rename grace "Grace 2"` |
-| 移到別的上層／最上層（子牌組跟著走） | `cubercard decks move grace --to turkish`、`cubercard decks move grace --to root` |
+| 移到別的上層／最上層（子牌組跟著走） | `cubercard decks move grace --to turkish`、`cubercard decks move grace --top-level` |
 | 每日新卡 | `cubercard decks set english --new-per-day 10`（加 `--apply-to-subdecks` 寫進所有子牌組） |
 | 把一張卡搬到別的牌組 | `cubercard cards move <card id> --to grace` |
 
@@ -187,16 +187,17 @@ measure clip.mp3
 6. 每份 manifest 各跑一次 `cubercard create --manifest french-import/<manifest> --dry-run`，再正式 `create`。`create` 會**先依 manifest 旁的 `decks.json` 建缺的牌組，再建卡**：已存在的牌組跳過；名字或上層和 server 不同只印 `warning:`、不會改（照使用者意思用 `decks rename`／`decks move` 自己改）。第二份以後的 manifest 牌組都已存在，只建卡。
 7. 回讀：`cubercard decks tree` 確認樹與卡數；每個牌組 `cubercard cards list --deck <id> --all` 張數要等於預覽；抽幾張複習過的卡 `cards get`，確認 `history` 與 `state` 存在。
 
-牌組 id 規則：Anki 有自己 deck id 的牌組（葉，以及 Anki 有紀錄的中間層）用 `anki-<Anki deck id>`；Anki 沒有紀錄的中間層用 `anki-path-<完整路徑 A::B 的 SHA-256 前 12 hex>`。同一份 Anki 重新匯出，id 都一樣，所以重跑是冪等的。名字只存最後一段（`Grace`，不是 `English::Grace`）。Anki 篩選牌組（filtered deck）裡的卡算回原本的牌組。
+牌組 id 規則：Anki 有自己 deck id 的牌組（葉，以及 Anki 有紀錄的中間層）用 `anki-<Anki deck id>`；Anki 沒有紀錄的中間層用 `anki-path-<完整路徑 A::B 的 SHA-256 前 12 hex>`。同一來源的 Anki deck id 會導出相同牌組 id。名字只存最後一段（`Grace`，不是 `English::Grace`）。Anki 篩選牌組（filtered deck）裡的卡算回原本的牌組。
 
-要把整份 .apkg 全部放進一個既有牌組、不管 Anki 的樹時，改加 `--deck <id>`：只輸出一份 `manifest.json`、不寫 `decks.json`（0.1.x 的做法）。
+要把整份 .apkg 全部放進一個既有牌組、不管 Anki 的樹時，改加 `--deck <id>`：只輸出一份 `manifest.json`、不寫 `decks.json`。輸出目錄已有 `decks.json` 時會在寫入前拒絕，改用新的 `--out`。
 
 說明：
 
 - 每張 Anki 卡的作答紀錄會變成 `history`（`source: import`），進度用 FSRS-5（與 app 相同參數）重播 revlog 得到，不是沿用 Anki 的間隔，所以到期日可能與 Anki 略有不同。Anki 裡「忘記／重設」之前的作答仍保留在 history，但不影響狀態。
 - Anki 的新卡保持新卡、順序照舊；Anki 暫停的卡匯入後也是暫停。
 - 粗體、顏色、表格會變純文字；`[sound:]` → audio（影片副檔名 → video）、`<img>` → image。
-- 同一份 .apkg 重跑是冪等的（`batch_id` 預設由檔案 hash 導出；指定 `--deck` 時也包含目標牌組）。重新匯出更新過的 .apkg 時，內容沒變的卡回 `existing`，內容改過的卡會 `content_conflict`：先確認差異，再用 `cards update` 改，或在 mapping 用 `skip` 排除。
+- 同一版本轉檔器、相同 mapping 與目標牌組產生的 manifest 可冪等重送（`batch_id` 預設由檔案 hash 導出；指定 `--deck` 時也包含目標牌組）。重新匯出更新過的 .apkg 時，內容沒變的卡回 `existing`，內容改過的卡會 `content_conflict`：先確認差異，再用 `cards update` 改，或在 mapping 用 `skip` 排除。
+- 轉檔器升級後重新轉檔可能改變卡面；0.2.2 的輸入答案與 cloze 正反面修正就是如此。重試未完成匯入時沿用原 manifest；要採用新卡面時先比對，再用 `cards update` 修改指定卡片，不能另造 key 繞過衝突。
 - 已存在的卡不會被新的 history／state 覆蓋。
 
 ## 改卡、暫停、刪除、排程

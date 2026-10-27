@@ -55,7 +55,14 @@ export XDG_CONFIG_HOME="$WORK/config"
 unset CUBERCARD_API_KEY CUBERCARD_API_BASE
 
 step "migrate + start wrangler dev on :$PORT (persist $PERSIST)"
-if lsof -ti "tcp:$PORT" -sTCP:LISTEN >/dev/null 2>&1; then fail "port $PORT is already in use"; fi
+python3 - "$PORT" <<'PY' || fail "port $PORT is already in use or unavailable"
+import socket, sys
+with socket.socket() as probe:
+    try:
+        probe.bind(('127.0.0.1', int(sys.argv[1])))
+    except OSError:
+        sys.exit(1)
+PY
 mkdir -p "$PERSIST"
 (cd "$SERVER" && CI=1 npx wrangler d1 migrations apply cuber-card --local --persist-to "$PERSIST" >"$WORK/migrate.log" 2>&1) \
   || { cat "$WORK/migrate.log" >&2; fail "migrations failed"; }
@@ -234,7 +241,7 @@ run decks tree
 has "^English +english +0 +0 +20$"; has "^  Grace +grace +0 +0 +10$"; has "^    Kids +kids +0 +0 +20$"
 run decks list
 has "^kids +Kids +grace +20 +0"
-run decks move kids --to root
+run decks move kids --top-level
 has "deck kids \(Kids\): now at the top level"
 EXPECT_FAIL=1 run decks move english --to grace
 has "400 invalid_parent"

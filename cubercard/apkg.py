@@ -571,6 +571,8 @@ def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping:
     """``deck_id`` given: every card goes to that deck, one ``manifest.json``, no ``decks.json``.
     ``deck_id`` None: the Anki deck tree becomes ``decks.json``; one manifest per Anki deck that has cards
     (``manifest.json`` when there is one, else ``manifest-<deck id>.json``), its ``deck_id`` being that deck."""
+    if write and deck_id and (Path(out_dir) / DECKS_FILE).exists():
+        raise ApkgError(f"{out_dir}: contains {DECKS_FILE}; use a fresh --out directory with --deck")
     col = read_apkg(path)
     plans = plan_types(col, mapping or {})
     conv = Converter(col, plans)

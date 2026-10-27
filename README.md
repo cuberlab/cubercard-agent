@@ -58,7 +58,7 @@ cubercard decks tree                              # 樹狀縮排：自己的卡�
 cubercard decks create "🇬🇧 English" --id english
 cubercard decks create "Grace" --id grace --parent english --new-per-day 15
 cubercard decks rename grace "Grace 2"
-cubercard decks move grace --to turkish           # --to root = 移到最上層；子牌組跟著走
+cubercard decks move grace --to turkish           # 子牌組跟著走；移到最上層用 --top-level
 cubercard decks set english --new-per-day 10 --apply-to-subdecks
 cubercard decks delete grace                      # 牌組＋子牌組＋所有卡進垃圾桶，7 天內可復原
 cubercard decks restore grace
@@ -128,7 +128,8 @@ cubercard create --manifest french-import/manifest.json
 
 - Anki 的牌組樹變成 `--out/decks.json`：`A::B::C` 拆成三個牌組，由上到下 `[{"id", "name", "parent"}]`，`name` 只存最後一段。Anki 有 deck id 的牌組用 `anki-<deck id>`，Anki 沒有紀錄的中間層用 `anki-path-<完整路徑 A::B 的 SHA-256 前 12 hex>`。
 - 每個有卡的 Anki 牌組輸出一份 manifest，`deck_id` 是卡所在的牌組：只有一個時寫 `manifest.json`，多個時寫 `manifest-<deck id>.json`（`batch_id` 加上 `:<deck id>`）。`create` 會先依旁邊的 `decks.json` 建牌組。篩選牌組裡的卡算回原本的牌組。
-- `--deck <id>`：全部卡放進這個既有牌組，只寫一份 `manifest.json`、不寫 `decks.json`；預設 `batch_id` 包含目標牌組，同檔同牌組重跑仍冪等，明確指定的 `--batch-id` 保持原值。
+- `--deck <id>`：全部卡放進這個既有牌組，只寫一份 `manifest.json`、不寫 `decks.json`；輸出目錄若已有 `decks.json` 會在寫入前拒絕，改用新的 `--out`。預設 `batch_id` 包含目標牌組，同檔同牌組重跑仍冪等，明確指定的 `--batch-id` 保持原值。
+- 重新送出原本的 manifest 可安全重試。升級轉檔器或修改 mapping 後重新轉同一份 `.apkg`，卡面可能改變；0.2.2 修正的輸入答案與 cloze 正反面會出現這種差異。既有卡的不同內容仍回 `content_conflict`，保留進度；先比對差異，再用 `cards update` 修改指定卡片。
 - 讀 `.apkg` 內的 `collection.anki21b`（新版 zstd 格式）、`collection.anki21` 或 `collection.anki2`。
 - 每個欄位變成文字 block：預設第一個欄位當 `term`／`title`、第二個當 `definition`／`translation`、其餘 `text`；正反面依卡片模板引用了哪些欄位決定。`[sound:x]` 變 `audio`（影片副檔名變 `video`）、`<img src>` 變 `image`，其他 HTML 去掉。
 - Cloze note type 依 `{{cN::}}` 展開成 N 張 `kind: cloze` 卡，external_key `anki:<note_id>:c<N>`；挖空內換行轉成空格，額外提示與媒體依模板或 mapping 的正反面配置；一般卡 `anki:<note_id>:<ord>`。輸入答案卡型的正面略過輸入框，背面保留答案。

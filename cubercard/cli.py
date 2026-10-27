@@ -71,9 +71,6 @@ def cmd_status(args, client: Client) -> int:
 
 # ---------------------------------------------------------------- decks
 
-ROOT = "root"
-
-
 def deck_children(decks: list[dict]) -> dict[str | None, list[dict]]:
     """parent id → children in sort_order; a deck whose parent is not listed counts as top level."""
     ids = {d["id"] for d in decks}
@@ -152,7 +149,7 @@ def cmd_decks(args, client: Client) -> int:
         print(f"deck {deck['id']}: renamed to {deck['name']}")
         return 0
     if action == "move":
-        parent = None if args.to == ROOT else args.to
+        parent = None if args.top_level else args.to
         if parent == args.id:
             raise CliError("decks move: a deck cannot be its own parent")
         deck = client.update_deck(args.id, parent_id=parent)
@@ -527,7 +524,9 @@ def build_parser() -> argparse.ArgumentParser:
     dr.add_argument("name")
     dm = deck_cmd("move", "move a deck (with its subdecks) under another deck, or to the top level", json_flag=False)
     dm.add_argument("id")
-    dm.add_argument("--to", required=True, help=f"parent deck id, or '{ROOT}' for the top level")
+    target = dm.add_mutually_exclusive_group(required=True)
+    target.add_argument("--to", help="parent deck id (including a deck named root)")
+    target.add_argument("--top-level", action="store_true", help="move to the top level")
     dd = deck_cmd("delete", "move a deck, its subdecks and all their cards to the trash")
     dd.add_argument("id")
     dd.add_argument("--purge", action="store_true", help="delete for good instead (cards, progress, history); cannot be undone")

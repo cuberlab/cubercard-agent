@@ -4,6 +4,10 @@ import socket
 import subprocess
 import sys
 import os
+import shutil
+import shlex
+
+import pytest
 
 from cubercard import apkg, manifest as mf
 from tests import apkg_fixture as fx
@@ -48,15 +52,36 @@ def test_target_deck_scopes_default_batch_but_explicit_batch_stays_explicit(tmp_
     assert batch('one', batch_id='chosen') == 'chosen'
 
 
-def test_e2e_occupied_port_never_terminates_its_owner(tmp_path):
+def test_target_deck_rejects_stale_tree_before_changing_output(tmp_path):
+    path = fx.build(tmp_path)
+    out = tmp_path / 'out'
+    apkg.convert(path, None, out)
+    before = {p.relative_to(out): p.read_bytes() for p in out.rglob('*') if p.is_file()}
+    with pytest.raises(apkg.ApkgError, match='decks.json'):
+        apkg.convert(path, 'chosen', out)
+    assert {p.relative_to(out): p.read_bytes() for p in out.rglob('*') if p.is_file()} == before
+
+
+def test_e2e_occupied_port_never_terminates_its_owner(tmp_path, monkeypatch):
+    # The port guard must work without lsof and never reach Wrangler/network.
+    commands = tmp_path / 'bin'
+    commands.mkdir()
+    for name in ('dirname', 'mktemp', 'rm', 'mkdir', 'python3'):
+        (commands / name).symlink_to(shutil.which(name))
+    invoked = tmp_path / 'npx-invoked'
+    npx = commands / 'npx'
+    npx.write_text('#!/bin/sh\nprintf called > ' + shlex.quote(str(invoked)) + '\nexit 99\n')
+    npx.chmod(0o700)
+    monkeypatch.setenv('PATH', str(commands))
     listener = subprocess.Popen([sys.executable, '-u', '-c',
         'import socket,time;s=socket.socket();s.bind(("127.0.0.1",0));s.listen();print(s.getsockname()[1],flush=True);time.sleep(60)'], stdout=subprocess.PIPE, text=True)
     try:
         port = listener.stdout.readline().strip()
-        result = subprocess.run(['bash', 'scripts/e2e.sh'], cwd=Path(__file__).resolve().parents[1],
+        result = subprocess.run(['/bin/bash', 'scripts/e2e.sh'], cwd=Path(__file__).resolve().parents[1],
             env={**os.environ, 'CUBERCARD_SERVER_DIR': str(tmp_path), 'E2E_PORT': port},
             text=True, capture_output=True, timeout=10)
         assert result.returncode != 0 and 'already in use' in result.stderr
+        assert not invoked.exists(), 'unit test reached Wrangler instead of stopping at the port guard'
         assert listener.poll() is None, 'E2E cleanup killed a listener it did not start'
         with socket.create_connection(('127.0.0.1', int(port)), timeout=1):
             pass
