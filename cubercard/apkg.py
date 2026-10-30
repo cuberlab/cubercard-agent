@@ -613,6 +613,14 @@ def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping:
               "media": sorted(conv.used_media), "collection": col.collection_name}
     if write:
         out = Path(out_dir)
+        expected = {m["file"] for m in manifests}
+        existing = {p.name for p in out.glob("manifest-*.json")}
+        if (out / "manifest.json").exists():
+            existing.add("manifest.json")
+        stale = existing - expected
+        if stale:
+            col.zip.close()
+            raise ApkgError(f"{out_dir}: contains stale manifests {', '.join(sorted(stale))}; use a fresh --out directory")
         (out / "media").mkdir(parents=True, exist_ok=True)
         for name, member in conv.used_media.items():
             data = _maybe_zstd(col.zip.read(member))

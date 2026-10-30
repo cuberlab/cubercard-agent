@@ -160,6 +160,25 @@ def test_explicit_deck_puts_everything_in_one_manifest_without_decks_json(tmp_pa
     assert report["decks"] is None and not (tmp_path / "out" / "decks.json").exists()
 
 
+def test_tree_conversion_rejects_stale_explicit_deck_manifest_without_writing(tmp_path):
+    path = fx.build(tmp_path, decks=TREE, card_decks=TREE_CARDS)
+    out = tmp_path / "out"
+    apkg.convert(path, "explicit", out)
+    before = {file.relative_to(out): file.read_bytes() for file in out.rglob("*") if file.is_file()}
+    with pytest.raises(apkg.ApkgError, match="fresh --out"):
+        apkg.convert(path, None, out)
+    assert {file.relative_to(out): file.read_bytes() for file in out.rglob("*") if file.is_file()} == before
+
+
+def test_repeated_tree_conversion_with_exact_output_set_is_safe(tmp_path):
+    path = fx.build(tmp_path, decks=TREE, card_decks=TREE_CARDS)
+    out = tmp_path / "out"
+    first = apkg.convert(path, None, out)
+    second = apkg.convert(path, None, out)
+    assert first["decks"] == second["decks"]
+    assert [m["manifest"] for m in first["manifests"]] == [m["manifest"] for m in second["manifests"]]
+
+
 def test_filtered_deck_cards_go_to_their_home_deck(tmp_path):
     path = fx.build(tmp_path, decks={1: "French", 99: "Filtered Deck 1"}, card_decks={3001: (99, 1)})
     report = apkg.convert(path, None, tmp_path / "out", write=False)
