@@ -228,3 +228,69 @@ def test_load_decks_rejects(tmp_path, data, message):
     path.write_text(json.dumps(data))
     with pytest.raises(mf.ManifestError, match=message):
         mf.load_decks(path)
+
+
+# ---------------------------------------------------------------- hostile input bounds
+
+def test_varint_accepts_ten_bytes_and_rejects_longer_or_truncated():
+    assert apkg._varint(b"\xff" * 9 + b"\x01", 0) == (2 ** 64 - 1, 10)
+    with pytest.raises(apkg.ApkgError, match="longer than 10 bytes"):
+        apkg.proto_fields(b"\x08" + b"\xff" * 10 + b"\x01")
+    with pytest.raises(apkg.ApkgError, match="longer than 10 bytes"):
+        apkg.proto_fields(b"\x08" + b"\x80" * 100_000 + b"\x01")
+    with pytest.raises(apkg.ApkgError, match="truncated protobuf varint"):
+        apkg.proto_fields(b"\x08\x80")
+
+
+def test_zstd_output_is_bounded():
+    import zstandard
+    bomb = zstandard.ZstdCompressor().compress(b"\0" * (8 << 20))
+    assert len(bomb) < 4096
+    assert apkg._maybe_zstd(bomb, 8 << 20, "x") == b"\0" * (8 << 20)
+    with pytest.raises(apkg.ApkgError, match="larger than 1048576 bytes"):
+        apkg._maybe_zstd(bomb, 1 << 20, "x")
+
+
+@pytest.mark.parametrize("fmt", ["legacy", "schema18"])
+def test_oversized_collection_is_rejected(tmp_path, monkeypatch, fmt):
+    path = fx.build(tmp_path, fmt)
+    monkeypatch.setattr(apkg, "MAX_COLLECTION_BYTES", 1024)
+    with pytest.raises(apkg.ApkgError, match="larger than 1024 bytes"):
+        apkg.convert(path, "d", tmp_path / "out", write=False)
+
+
+@pytest.mark.parametrize("fmt", ["legacy", "schema18"])
+def test_oversized_media_index_is_rejected(tmp_path, monkeypatch, fmt):
+    path = fx.build(tmp_path, fmt)
+    monkeypatch.setattr(apkg, "MAX_MEDIA_INDEX_BYTES", 8)
+    with pytest.raises(apkg.ApkgError, match="media index is larger than 8 bytes"):
+        apkg.convert(path, "d", tmp_path / "out", write=False)
+
+
+@pytest.mark.parametrize("fmt", ["legacy", "schema18"])
+def test_oversized_media_file_and_total_media_are_rejected(tmp_path, monkeypatch, fmt):
+    path = fx.build(tmp_path, fmt)
+    monkeypatch.setattr(apkg, "MAX_MEDIA_FILE_BYTES", len(fx.AUDIO) - 1)
+    with pytest.raises(apkg.ApkgError, match="media file bonjour.mp3 is larger than"):
+        apkg.convert(path, "d", tmp_path / "out1")
+    monkeypatch.setattr(apkg, "MAX_MEDIA_FILE_BYTES", 1 << 20)
+    monkeypatch.setattr(apkg, "MAX_TOTAL_MEDIA_BYTES", len(fx.AUDIO) + len(fx.IMAGE) - 1)
+    with pytest.raises(apkg.ApkgError, match="total media budget left"):
+        apkg.convert(path, "d", tmp_path / "out2")
+    monkeypatch.setattr(apkg, "MAX_TOTAL_MEDIA_BYTES", len(fx.AUDIO) + len(fx.IMAGE))
+    apkg.convert(path, "d", tmp_path / "out3")
+    assert (tmp_path / "out3" / "media" / "bonjour.mp3").read_bytes() == fx.AUDIO
+
+
+@pytest.mark.parametrize("fmt", ["legacy", "schema18"])
+def test_extreme_deck_depth_is_rejected(tmp_path, fmt):
+    deep = "::".join(f"L{i}" for i in range(apkg.MAX_APKG_DECK_DEPTH + 1))
+    (tmp_path / "deep").mkdir()
+    (tmp_path / "ok").mkdir()
+    path = fx.build(tmp_path / "deep", fmt, decks={10: deep}, card_decks={3001: 10, 3002: 10, 3003: 10})
+    with pytest.raises(apkg.ApkgError, match=f"nested deeper than {apkg.MAX_APKG_DECK_DEPTH} levels"):
+        apkg.convert(path, None, tmp_path / "out", write=False)
+    ok = "::".join(f"L{i}" for i in range(apkg.MAX_APKG_DECK_DEPTH))
+    path = fx.build(tmp_path / "ok", fmt, decks={10: ok}, card_decks={3001: 10, 3002: 10, 3003: 10})
+    report = apkg.convert(path, None, tmp_path / "out", write=False)
+    assert len(report["decks"]) == apkg.MAX_APKG_DECK_DEPTH

@@ -36,6 +36,14 @@ MEDIA_RE = re.compile(SOUND_RE.pattern + "|" + IMG_RE.pattern, re.I)
 REF_RE = re.compile(r"\{\{([^{}]+)\}\}")
 BLOCK_ROLES = set(TEXT_TYPES) | {"skip"}
 MAPPING_KEYS = {"kind", "lang", "term", "definition", "context", "source", "blocks", "front", "back", "templates", "skip"}
+# Decompression bounds: a small .apkg must not expand into unbounded memory or disk.
+MAX_COLLECTION_BYTES = 1 << 30  # 1 GiB uncompressed collection database
+MAX_MEDIA_INDEX_BYTES = 64 << 20  # 64 MiB uncompressed ``media`` index
+MAX_MEDIA_FILE_BYTES = 256 << 20  # 256 MiB per uncompressed media file
+MAX_TOTAL_MEDIA_BYTES = 4 << 30  # 4 GiB of media written by one conversion
+# Hard cap on Anki deck nesting (the server allows MAX_DECK_DEPTH; deeper trees only warn up to here).
+MAX_APKG_DECK_DEPTH = 32
+MAX_VARINT_BYTES = 10
 
 
 class ApkgError(CliError):
@@ -75,14 +83,16 @@ class Collection:
 # ---------------------------------------------------------------- protobuf (minimal reader)
 
 def _varint(buf: bytes, i: int) -> tuple[int, int]:
-    shift = result = 0
-    while True:
+    result = 0
+    for shift in range(0, 7 * MAX_VARINT_BYTES, 7):
+        if i >= len(buf):
+            raise ApkgError("truncated protobuf varint")
         b = buf[i]
         i += 1
         result |= (b & 0x7F) << shift
         if not b & 0x80:
             return result, i
-        shift += 7
+    raise ApkgError(f"protobuf varint longer than {MAX_VARINT_BYTES} bytes")
 
 
 def proto_fields(buf: bytes) -> dict[int, list[Any]]:
@@ -106,10 +116,39 @@ def proto_fields(buf: bytes) -> dict[int, list[Any]]:
     return out
 
 
-def _maybe_zstd(data: bytes) -> bytes:
-    if data[:4] == ZSTD_MAGIC:
-        return zstandard.ZstdDecompressor().stream_reader(data).read()
-    return data
+def _too_large(what: str, limit: int) -> ApkgError:
+    return ApkgError(f"{what} is larger than {limit} bytes uncompressed; refusing to expand it")
+
+
+def _maybe_zstd(data: bytes, limit: int, what: str) -> bytes:
+    if data[:4] != ZSTD_MAGIC:
+        if len(data) > limit:
+            raise _too_large(what, limit)
+        return data
+    reader = zstandard.ZstdDecompressor().stream_reader(data)
+    chunks, total = [], 0
+    while True:
+        chunk = reader.read(min(1 << 20, limit + 1 - total))
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > limit:
+            raise _too_large(what, limit)
+        chunks.append(chunk)
+
+
+def _read_member(zf: zipfile.ZipFile, member: str, limit: int, what: str) -> bytes:
+    """Read one zip member (zstd-decoded if needed), never holding more than ``limit`` + 1 bytes of output.
+    The raw member may be a zstd frame, which can be slightly larger than its content (ZSTD_compressBound)."""
+    raw_limit = limit + (limit >> 8) + 1024
+    info = zf.getinfo(member)
+    if info.file_size > raw_limit:
+        raise _too_large(what, limit)
+    with zf.open(info) as fh:
+        data = fh.read(raw_limit + 1)
+    if len(data) > raw_limit:
+        raise _too_large(what, limit)
+    return _maybe_zstd(data, limit, what)
 
 
 # ---------------------------------------------------------------- reading
@@ -117,7 +156,7 @@ def _maybe_zstd(data: bytes) -> bytes:
 def _media_map(zf: zipfile.ZipFile) -> dict[str, str]:
     if "media" not in zf.namelist():
         return {}
-    raw = _maybe_zstd(zf.read("media"))
+    raw = _read_member(zf, "media", MAX_MEDIA_INDEX_BYTES, "media index")
     try:
         data = json.loads(raw.decode("utf-8"))
         return {name: member for member, name in data.items()}
@@ -172,7 +211,7 @@ def read_apkg(path: str | Path) -> Collection:
     member = next((n for n in COLLECTIONS if n in names), None)
     if member is None:
         raise ApkgError(f"{path}: no collection.anki21b / anki21 / anki2 inside")
-    data = _maybe_zstd(zf.read(member))
+    data = _read_member(zf, member, MAX_COLLECTION_BYTES, f"{path}: {member}")
     conn = sqlite3.connect(":memory:")
     conn.deserialize(data)
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
@@ -532,6 +571,8 @@ def order_key(item: tuple[dict, dict | None]) -> tuple:
 
 
 def deck_path(name: str) -> list[str]:
+    if name.count("::") >= MAX_APKG_DECK_DEPTH:
+        raise ApkgError(f"Anki deck {name[:80]!r}... is nested deeper than {MAX_APKG_DECK_DEPTH} levels")
     return [part.strip() or "(unnamed)" for part in name.split("::")]
 
 
@@ -593,11 +634,12 @@ def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping:
         groups = {}
         for card, _ in items:
             groups.setdefault(leaf[conv.home[card["external_key"]]], []).append(card)
+        parents = {x["id"]: x["parent"] for x in decks}
         for d in decks:
             depth, parent = 1, d["parent"]
             while parent:
                 depth += 1
-                parent = next(x["parent"] for x in decks if x["id"] == parent)
+                parent = parents[parent]
             if depth > MAX_DECK_DEPTH:
                 conv.warnings.append(f"deck {d['id']} ({d['name']}) is level {depth}; the server allows {MAX_DECK_DEPTH}")
     single = len(groups) == 1
@@ -622,8 +664,16 @@ def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping:
             col.zip.close()
             raise ApkgError(f"{out_dir}: contains stale manifests {', '.join(sorted(stale))}; use a fresh --out directory")
         (out / "media").mkdir(parents=True, exist_ok=True)
+        media_budget = MAX_TOTAL_MEDIA_BYTES
         for name, member in conv.used_media.items():
-            data = _maybe_zstd(col.zip.read(member))
+            limit = min(MAX_MEDIA_FILE_BYTES, media_budget)
+            what = f"media file {name}" if limit == MAX_MEDIA_FILE_BYTES else f"media file {name} (total media budget left)"
+            try:
+                data = _read_member(col.zip, member, limit, what)
+            except ApkgError:
+                col.zip.close()
+                raise
+            media_budget -= len(data)
             (out / "media" / name).write_bytes(data)
         for m in manifests:
             m["path"] = str(out / m["file"])
