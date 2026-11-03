@@ -297,7 +297,7 @@ def _blocks(raw: Any, label: str, ctx: _Ctx) -> tuple[list[dict], list[tuple[str
         elif kind == "cloze":
             allow(("type", "text", "index", "lang", "rtl"))
             text = _nonempty(b.get("text"), f"{where}.text")
-            index = b.get("index")
+            index: Any = b.get("index")
             if not _is_int(index) or not 1 <= index <= 99:
                 raise ManifestError(f"{where}: cloze index must be an integer 1–99")
             if index not in cloze_indexes(text):
@@ -316,7 +316,7 @@ def _state(raw: Any, label: str) -> dict:
     queue = raw.get("queue")
     if queue not in QUEUES:
         raise ManifestError(f"{label}: queue must be new | learning | review | relearning")
-    out = {"queue": queue}
+    out: dict[str, Any] = {"queue": queue}
     for k in ("step", "reps", "lapses"):
         v = raw.get(k, 0)
         if v is None:

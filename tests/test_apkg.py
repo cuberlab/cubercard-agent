@@ -106,7 +106,7 @@ def _sha12(path):
 
 # Grace has an Anki deck, English has one and its own cards, Languages has no Anki deck row.
 TREE = {10: "Languages::English::Grace", 12: "Languages::English"}
-TREE_CARDS = {3001: 10, 3002: 12, 3003: 12}
+TREE_CARDS: dict[int, int | tuple[int, int]] = {3001: 10, 3002: 12, 3003: 12}
 
 
 @pytest.mark.parametrize("fmt", ["legacy", "schema18"])

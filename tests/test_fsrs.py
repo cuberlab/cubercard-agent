@@ -4,6 +4,7 @@ import json
 import math
 from pathlib import Path
 import unittest
+from typing import cast
 
 from cubercard.fsrs import (PARAMS, new_state, next_state, preview, replay,
                            retrievability, scheduler_config)
@@ -39,7 +40,7 @@ class FSRSTests(unittest.TestCase):
 
     def test_forgetting_curve_at_stability_is_retention(self):
         state = dict(stability=10, last_review='2026-01-01T00:00:00Z')
-        self.assertAlmostEqual(retrievability(state, '2026-01-11T00:00:00Z'), 0.9, places=14)
+        self.assertAlmostEqual(cast(float, retrievability(state, '2026-01-11T00:00:00Z')), 0.9, places=14)
         self.assertEqual(retrievability(state, '2026-01-01T00:00:00Z'), 1)
         self.assertIsNone(retrievability(new_state(), '2026-01-01T00:00:00Z'))
 

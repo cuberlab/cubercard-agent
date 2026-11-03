@@ -18,7 +18,7 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import AbstractSet, Any, cast
 
 import zstandard
 
@@ -218,7 +218,7 @@ def read_apkg(path: str | Path) -> Collection:
     note_types, decks = _schema18_models(conn) if "notetypes" in tables else _legacy_models(conn)
     notes = {nid: {"id": nid, "mid": mid, "fields": flds.split("\x1f"), "tags": tags.split()}
              for nid, mid, flds, tags in conn.execute("SELECT id, mid, flds, tags FROM notes")}
-    cards = [dict(zip(("id", "nid", "did", "ord", "type", "queue", "due", "odid"), r))
+    cards: list[dict[str, Any]] = [dict(zip(("id", "nid", "did", "ord", "type", "queue", "due", "odid"), r))
              for r in conn.execute("SELECT id, nid, did, ord, type, queue, due, odid FROM cards ORDER BY nid, ord")]
     for card in cards:
         # A card in a filtered deck lives in odid; that is its real deck.
@@ -432,12 +432,12 @@ class Converter:
             self.missing_media.add(name)
             return None
         self.used_media[name] = self.col.media[name]
-        block = {"type": kind, "filename": "media/" + name}
+        block: dict[str, Any] = {"type": kind, "filename": "media/" + name}
         if autoplay is not None and kind in ("audio", "video"):
             block["autoplay"] = autoplay
         return block
 
-    def field_blocks(self, plan: TypePlan, note: dict, names: list[str], *, repeat: set[str] = frozenset()) -> list[dict]:
+    def field_blocks(self, plan: TypePlan, note: dict, names: list[str], *, repeat: AbstractSet[str] = frozenset()) -> list[dict]:
         out = []
         for name in names:
             role = plan.roles.get(name, "text")
@@ -528,7 +528,7 @@ class Converter:
 
     def _cloze(self, plan: TypePlan, note: dict, anki_cards: list[dict]) -> list:
         name = plan.cloze_text
-        value = note["fields"][plan.nt.fields.index(name)]
+        value = note["fields"][plan.nt.fields.index(cast(str, name))]
         text = strip_html(value)
         # The API's cloze syntax is single-line inside each deletion. Preserve
         # the answer/hint and line breaks outside deletions instead of losing cards.
@@ -630,10 +630,10 @@ def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping:
         homeless = [card["external_key"] for card, _ in items if conv.home.get(card["external_key"]) is None]
         if homeless:
             raise ApkgError(f"no Anki deck for {', '.join(homeless[:5])}; give --deck to put every card in one deck")
-        decks, leaf = deck_tree(col, {conv.home[card["external_key"]] for card, _ in items})
+        decks, leaf = deck_tree(col, {cast(int, conv.home[card["external_key"]]) for card, _ in items})
         groups = {}
         for card, _ in items:
-            groups.setdefault(leaf[conv.home[card["external_key"]]], []).append(card)
+            groups.setdefault(leaf[cast(int, conv.home[card["external_key"]])], []).append(card)
         parents = {x["id"]: x["parent"] for x in decks}
         for d in decks:
             depth, parent = 1, d["parent"]

@@ -7,6 +7,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from . import __version__, apkg, manifest as mf
 from .api import ApiError, CliError, Client, resolve, write_credentials
@@ -594,7 +595,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(line_buffering=True)  # keep stdout/stderr in order when piped
+        cast(Any, sys.stdout).reconfigure(line_buffering=True)  # keep stdout/stderr in order when piped
     args = build_parser().parse_args(argv)
     try:
         if args.command == "auth":

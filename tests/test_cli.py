@@ -1,5 +1,6 @@
 """CLI behaviour against a mocked server (httpx.MockTransport)."""
 import json
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -11,7 +12,7 @@ from cubercard import api, cli
 def server(monkeypatch, tmp_path):
     """Route requests to a handler; returns the list of recorded requests."""
     calls = []
-    state = {"handler": None}
+    state: dict[str, Any] = {"handler": None}
 
     class MockClient(api.Client):
         def __init__(self, base, key, timeout=60.0, transport=None):
@@ -24,7 +25,7 @@ def server(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
     monkeypatch.setenv("CUBERCARD_API_KEY", "ck_live_test")
     monkeypatch.setenv("CUBERCARD_API_BASE", "http://test.invalid")
-    server.calls = calls
+    cast(Any, server).calls = calls
 
     def use(handler):
         state["handler"] = handler

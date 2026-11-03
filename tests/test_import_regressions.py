@@ -76,6 +76,7 @@ def test_e2e_occupied_port_never_terminates_its_owner(tmp_path, monkeypatch):
     listener = subprocess.Popen([sys.executable, '-u', '-c',
         'import socket,time;s=socket.socket();s.bind(("127.0.0.1",0));s.listen();print(s.getsockname()[1],flush=True);time.sleep(60)'], stdout=subprocess.PIPE, text=True)
     try:
+        assert listener.stdout is not None
         port = listener.stdout.readline().strip()
         result = subprocess.run(['/bin/bash', 'scripts/e2e.sh'], cwd=Path(__file__).resolve().parents[1],
             env={**os.environ, 'CUBERCARD_SERVER_DIR': str(tmp_path), 'E2E_PORT': port},
