@@ -22,6 +22,7 @@ from .api import CliError
 MAX_BATCH_CARDS = 500
 # Server limit is 2 MiB per JSON body; keep headroom for encoding differences.
 MAX_BATCH_BYTES = 1_900_000
+MAX_MEDIA_BYTES = 20 * 1024 * 1024
 MAX_BLOCKS = 50
 KINDS = ("basic", "sentence", "text_recall", "alphabet", "cloze")
 DIRECTIONS = ("listen", "read", "speak", "write")
@@ -218,7 +219,7 @@ class _Ctx:
         size = path.stat().st_size
         if size == 0:
             raise ManifestError(f"{label}: media file is empty: {filename}")
-        if size > 20 * 1024 * 1024:
+        if size > MAX_MEDIA_BYTES:
             raise ManifestError(f"{label}: media file is larger than 20 MB: {filename}")
         digest = self._hash_cache.get(path) or sha256_file(path)
         self._hash_cache[path] = digest

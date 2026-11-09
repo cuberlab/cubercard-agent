@@ -6,11 +6,45 @@ import sys
 import os
 import shutil
 import shlex
+import zipfile
 
 import pytest
 
 from cubercard import apkg, manifest as mf
 from tests import apkg_fixture as fx
+
+
+@pytest.mark.parametrize('name,size', [('clip.mkv', 5), ('picture.bmp', 5),
+                                     ('empty.mp3', 0), ('large.mp3', 20 * 1024 * 1024 + 1)])
+@pytest.mark.parametrize('fmt', ['legacy', 'new'])
+def test_unusable_media_is_dropped_without_aborting_conversion(tmp_path, monkeypatch, name, size, fmt):
+    data = b'x' * size
+    media = f'<img src="{name}">' if name.endswith('.bmp') else f'[sound:{name}]'
+    monkeypatch.setattr(fx, 'BASIC_FRONT', f'bonjour{media}')
+    path = fx.build(tmp_path, fmt)
+    # Keep the fixture collection/media index but replace the referenced sound file.
+    with zipfile.ZipFile(path) as source:
+        entries = {item.filename: source.read(item) for item in source.infolist()}
+    if fmt == 'legacy':
+        entries['media'] = json.dumps({'0': name, '1': 'map.png'}).encode()
+        entries['0'] = data
+    else:
+        import zstandard
+        compressor = zstandard.ZstdCompressor()
+        index = b''.join(fx.pb_bytes(1, fx.pb_bytes(1, filename) + fx.pb_varint(2, len(body)))
+                         for filename, body in ((name, data), ('map.png', fx.IMAGE)))
+        entries['media'] = compressor.compress(index)
+        entries['0'] = compressor.compress(data)
+    with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+        for member, body in entries.items():
+            archive.writestr(member, body)
+    output = tmp_path / 'out'
+    report = apkg.convert(path, 'french', output)
+    assert report['missing_media'] == [name]
+    assert not (output / 'media' / name).exists()
+    assert (output / 'media/map.png').is_file()
+    assert len(mf.prepare(report['manifest'], output).cards) == 3
+    assert name in '\n'.join(apkg.preview_lines(report))
 
 
 def test_typed_answer_survives_on_back(tmp_path, monkeypatch):

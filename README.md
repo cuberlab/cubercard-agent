@@ -135,6 +135,7 @@ cubercard create --manifest french-import/manifest.json
 - Cloze note type 依 `{{cN::}}` 展開成 N 張 `kind: cloze` 卡，external_key `anki:<note_id>:c<N>`；挖空內換行轉成空格，額外提示與媒體依模板或 mapping 的正反面配置；一般卡 `anki:<note_id>:<ord>`。輸入答案卡型的正面略過輸入框，背面保留答案。
 - 每張卡的 revlog 變成 `history[]`，並用 FSRS-5（與 app 相同參數）重播出 `state`；新卡維持新卡，順序沿用 Anki；Anki 暫停的卡匯入後也是暫停。
 - 媒體解到 `--out/media/`（所有 manifest 共用）。輸出前先印每種 note type 的欄位對應預覽、卡數與牌組樹；`--preview` 只印不寫。
+- 不支援格式、空檔或解壓後超過 20 MiB 的媒體在輸出前略過，列入 `missing media (dropped)` 與警告；其餘卡片與有效媒體照常轉換。
 - `--mapping` 指定欄位對應，格式見 [examples/mapping.json](examples/mapping.json)：每個 note type 可設 `term`、`definition`、`context`（欄位名）、`kind`、`lang`、`source`、`blocks`（欄位 → `title`／`text`／`translation`／`quote`／`source`／`skip`）、`front`／`back`（欄位清單）或 `templates`（依模板名稱或 ord 分別設 `front`／`back`）、`skip`。
 - 不做音量正規化；做法見 SKILL.md「音量」。
 

@@ -24,7 +24,8 @@ import zstandard
 
 from . import fsrs
 from .api import CliError
-from .manifest import DECKS_FILE, KINDS, MAX_DECK_DEPTH, TEXT_TYPES, cloze_answers, cloze_indexes, cloze_plain
+from .manifest import (DECKS_FILE, KINDS, MAX_DECK_DEPTH, MAX_MEDIA_BYTES, TEXT_TYPES,
+                       ManifestError, cloze_answers, cloze_indexes, cloze_plain, mime_for)
 
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 COLLECTIONS = ("collection.anki21b", "collection.anki21", "collection.anki2")
@@ -428,9 +429,19 @@ class Converter:
         self.home: dict[str, int | None] = {}  # external_key -> Anki deck id the card lives in
 
     def _media_block(self, kind: str, name: str, autoplay: bool | None = None) -> dict | None:
-        if "/" in name or "\\" in name or name.startswith(".") or name not in self.col.media:
+        if name in self.missing_media or "/" in name or "\\" in name or name.startswith(".") or name not in self.col.media:
             self.missing_media.add(name)
             return None
+        if name not in self.used_media:
+            try:
+                mime_for(name)
+                data = _read_member(self.col.zip, self.col.media[name], MAX_MEDIA_BYTES, f"media file {name}")
+                if not data:
+                    raise ApkgError(f"media file {name} is empty")
+            except (ManifestError, ApkgError, KeyError, zipfile.BadZipFile, zstandard.ZstdError) as error:
+                self.missing_media.add(name)
+                self.warnings.append(f"dropped media {name}: {error}")
+                return None
         self.used_media[name] = self.col.media[name]
         block: dict[str, Any] = {"type": kind, "filename": "media/" + name}
         if autoplay is not None and kind in ("audio", "video"):
