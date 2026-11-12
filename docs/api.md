@@ -97,7 +97,7 @@ API key 不能打 `/v1/auth/*` 與 `/v1/api-keys`（回 403 `session_required`�
 | `audio`、`video`、`image` | `sha256`（必填，已上傳）、`autoplay`（audio 預設 true）、`loudness_lufs`（-70～0，agent 量測值，server 只記錄） |
 | `cloze` | `text`（含 `{{cN::答案::提示}}`）、`index`（這張卡挖第幾號）、`lang`、`rtl` |
 
-未列出的欄位與 type 一律 400 `invalid_blocks`。回應裡媒體 block 存成 `{"type", "media": "<sha256>", "autoplay"}`。
+未列出的欄位與 type 一律 400 `invalid_blocks`。文字欄位（`text`、`highlight`、breakdown 的 `source`／`target`、cloze 的 `text`）每個最多 10,000 字（UTF-16 字元數），超過也是 400 `invalid_blocks`。回應裡媒體 block 存成 `{"type", "media": "<sha256>", "autoplay"}`。
 
 **cloze 規則**：`kind: "cloze"` 時 front 恰好一個 cloze block；back 的 cloze block 要同 `text` 同 `index`；`external_key` 結尾必須是 `:c<index>`。同一個 note 的各張卡（去掉 `:cN` 後相同）共用 `note_id`。非 cloze 卡不能有 cloze block。
 
