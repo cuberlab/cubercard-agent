@@ -155,3 +155,16 @@ def test_examples_validate(name):
     data = mf.load(EXAMPLES / name)
     prepared = mf.prepare(data, EXAMPLES, require_files=False)
     assert prepared.cards
+
+
+def test_cloze_regex_stays_linear_on_unterminated_cloze():
+    import time
+    n = 50000
+    for text in ("{{c1::" * n, "{{c1::" + "a::" * n, "{{c1::" * n + "\n}}", "}}" + "{{c1::" * n):
+        start = time.monotonic()
+        assert mf.cloze_indexes(text) == []
+        mf.cloze_plain(text)
+        assert time.monotonic() - start < 2, text[:40]
+    # matches are unchanged
+    assert mf.cloze_indexes("{{c1::a::b}} {{c2::x}} {{c3::{{c1::y}}") == [1, 2, 3]
+    assert mf.cloze_plain("Paris is in {{c1::France::country}}.") == "Paris is in France."

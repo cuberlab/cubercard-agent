@@ -34,6 +34,14 @@ SPECIAL_REFS = {"FrontSide", "Tags", "Deck", "Subdeck", "Card", "CardFlag", "Typ
 SOUND_RE = re.compile(r"\[sound:([^\]]+)\]")
 IMG_RE = re.compile(r"<img\b[^>]*?\bsrc\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))[^>]*>", re.I)
 MEDIA_RE = re.compile(SOUND_RE.pattern + "|" + IMG_RE.pattern, re.I)
+# MEDIA_RE spells out what media_matches finds; on untrusted fields the regex backtracks in cubic time
+# (an unterminated <img src=src=...), so the code walks the same matches in linear time instead.
+MEDIA_START_RE = re.compile(r"(\[sound:)|<img\b", re.I)
+SRC_RE = re.compile(r"\bsrc\s*=\s*", re.I)
+STYLE_OPEN_RE = re.compile(r"<(style|script)\b", re.I)
+STYLE_CLOSE_RE = {"style": re.compile(r"</style>", re.I), "script": re.compile(r"</script>", re.I)}
+BLOCK_TAG_RE = re.compile(r"(?i)<br\s*/?>|</(div|p|li|tr|h[1-6])>|<(div|p|li|tr|h[1-6])\b[^>]*>")
+ANY_TAG_RE = re.compile(r"(?s)<[^>]*>")
 REF_RE = re.compile(r"\{\{([^{}]+)\}\}")
 BLOCK_ROLES = set(TEXT_TYPES) | {"skip"}
 MAPPING_KEYS = {"kind", "lang", "term", "definition", "context", "source", "blocks", "front", "back", "templates", "skip"}
@@ -202,6 +210,14 @@ def _schema18_models(conn) -> tuple[dict[int, NoteType], dict[int, str]]:
     return types, decks
 
 
+def _anki_id(value: Any, what: str) -> int:
+    """Anki deck ids are integers, but SQLite does not enforce column types: a crafted collection can put text
+    such as ``x/../../evil`` there, which would end up in ``manifest-anki-<id>.json``. Reject anything else."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ApkgError(f"{what} must be an integer, got {value!r}")
+    return value
+
+
 def read_apkg(path: str | Path) -> Collection:
     path = Path(path)
     try:
@@ -221,7 +237,10 @@ def read_apkg(path: str | Path) -> Collection:
              for nid, mid, flds, tags in conn.execute("SELECT id, mid, flds, tags FROM notes")}
     cards: list[dict[str, Any]] = [dict(zip(("id", "nid", "did", "ord", "type", "queue", "due", "odid"), r))
              for r in conn.execute("SELECT id, nid, did, ord, type, queue, due, odid FROM cards ORDER BY nid, ord")]
+    decks = {_anki_id(did, f"{path}: deck id"): name for did, name in decks.items()}
     for card in cards:
+        card["did"] = _anki_id(card["did"], f"{path}: card {card['id']} did")
+        card["odid"] = 0 if card["odid"] is None else _anki_id(card["odid"], f"{path}: card {card['id']} odid")
         # A card in a filtered deck lives in odid; that is its real deck.
         card["home"] = card["odid"] or card["did"]
     revlog: dict[int, list[dict]] = {}
@@ -235,15 +254,64 @@ def read_apkg(path: str | Path) -> Collection:
 
 # ---------------------------------------------------------------- field conversion
 
+def media_matches(value: str):
+    """MEDIA_RE.finditer as (start, end, group 1-4) in linear time. A failed start tells something about later
+    starts: no "]" after it means no later [sound: can close; an <img with no working src= before its first ">"
+    means no other <img before that ">" has one either, since a src= value does not depend on where the tag began."""
+    pos, n = 0, len(value)
+    last_gt, last_bracket = value.rfind(">"), value.rfind("]")
+    last_quote = {'"': value.rfind('"'), "'": value.rfind("'")}
+    img_from = 0  # <img starts before this cannot match
+    while (m := MEDIA_START_RE.search(value, pos)) is not None:
+        start = m.start()
+        if m.group(1):
+            close = value.find("]", m.end()) if m.end() <= last_bracket else -1
+            if close > m.end():
+                yield start, close + 1, 1, value[m.end():close]
+                pos = close + 1
+                continue
+            pos = start + 1
+            continue
+        if start < img_from:
+            pos = start + 1
+            continue
+        first_gt = value.find(">", m.end()) if m.end() <= last_gt else -1
+        if first_gt < 0:
+            img_from = n + 1
+            pos = start + 1
+            continue
+        found = None
+        for src in SRC_RE.finditer(value, m.end(), first_gt):
+            v = src.end()
+            quote = value[v] if v < n else ""
+            if quote in last_quote and last_quote[quote] > v:
+                close = value.find(quote, v + 1)
+                if close < last_gt:
+                    found = (value.find(">", close + 1) + 1, 2 if quote == '"' else 3, value[v + 1:close])
+                    break
+            if v < n and value[v] != ">" and not value[v].isspace():
+                run = v
+                while run < n and value[run] != ">" and not value[run].isspace():
+                    run += 1
+                found = (value.find(">", run) + 1, 4, value[v:run])
+                break
+        if found is None:
+            img_from = first_gt + 1
+            pos = start + 1
+            continue
+        yield start, found[0], found[1], found[2]
+        pos = found[0]
+
+
 def extract_media(value: str) -> list[tuple[str, str]]:
     """[(block_type, filename)] in order of appearance."""
     out = []
-    for m in MEDIA_RE.finditer(value):
-        if m.group(1) is not None:
-            name = html.unescape(m.group(1).strip())
+    for _, _, group, raw in media_matches(value):
+        if group == 1:
+            name = html.unescape(raw.strip())
             out.append(("video" if Path(name).suffix.lower() in VIDEO_EXT else "audio", name))
         else:
-            name = html.unescape((m.group(2) or m.group(3) or m.group(4) or "").strip())
+            name = html.unescape(raw.strip())
             if name and not re.match(r"^(https?:|data:)", name, re.I):
                 out.append(("image", name))
     return out
@@ -260,11 +328,38 @@ def drop_front_repeats(back: list[dict], front: list[dict], *, keep_if_empty: bo
     return kept or (back if keep_if_empty else [])
 
 
+def _sub_tags(pattern: re.Pattern, repl: str, text: str) -> str:
+    """pattern.sub for a pattern whose matches end in ">": past the last ">" nothing can match, and before it every
+    start has a ">" ahead, so it never rescans to the end of the text from each start."""
+    end = text.rfind(">") + 1
+    return pattern.sub(repl, text[:end]) + text[end:]
+
+
+def _drop_style_script(text: str) -> str:
+    """re.sub(r"(?is)<(style|script)\\b.*?</\\1>", " ", text) without rescanning to the end from each opener."""
+    out, pos, dead = [], 0, set()
+    for m in STYLE_OPEN_RE.finditer(text):
+        name = m.group(1).lower()
+        if m.start() < pos or name in dead:
+            continue
+        close = STYLE_CLOSE_RE[name].search(text, m.end())
+        if close is None:
+            dead.add(name)
+            continue
+        out += [text[pos:m.start()], " "]
+        pos = close.end()
+    return "".join(out) + text[pos:]
+
+
 def strip_html(value: str) -> str:
-    text = MEDIA_RE.sub(" ", value)
-    text = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", text)
-    text = re.sub(r"(?i)<br\s*/?>|</(div|p|li|tr|h[1-6])>|<(div|p|li|tr|h[1-6])\b[^>]*>", "\n", text)
-    text = re.sub(r"(?s)<[^>]*>", "", text)
+    parts, last = [], 0
+    for start, end, _, _ in media_matches(value):
+        parts += [value[last:start], " "]
+        last = end
+    text = "".join(parts) + value[last:]
+    text = _drop_style_script(text)
+    text = _sub_tags(BLOCK_TAG_RE, "\n", text)
+    text = _sub_tags(ANY_TAG_RE, "", text)
     text = html.unescape(text).replace("\xa0", " ")
     lines = [re.sub(r"[ \t\r\f\v]+", " ", line).strip() for line in text.split("\n")]
     return "\n".join(line for line in lines if line)
@@ -666,6 +761,12 @@ def convert(path: str | Path, deck_id: str | None, out_dir: str | Path, mapping:
               "media": sorted(conv.used_media), "collection": col.collection_name}
     if write:
         out = Path(out_dir)
+        root = out.resolve()
+        for m in manifests:
+            # Backstop: every manifest is a plain file name that lands directly inside --out.
+            if Path(m["file"]).name != m["file"] or (out / m["file"]).resolve().parent != root:
+                col.zip.close()
+                raise ApkgError(f"unsafe manifest file name {m['file']!r} for deck {m['deck_id']!r}")
         expected = {m["file"] for m in manifests}
         existing = {p.name for p in out.glob("manifest-*.json")}
         if (out / "manifest.json").exists():

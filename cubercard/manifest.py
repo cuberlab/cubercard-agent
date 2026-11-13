@@ -121,13 +121,25 @@ def parse_utc(value: Any) -> datetime | None:
         return None
 
 
+def _cloze_matches(text: str):
+    """CLOZE_RE.finditer, linear on untrusted text. A match never crosses a newline and ends at a "}}", so each
+    line is searched only up to its last "}}": every start left has a "}}" ahead and matches at the nearest one,
+    instead of an unterminated {{c1::{{c1::... rescanning the rest of the line from each start."""
+    pos = 0
+    for line in text.split("\n"):
+        end = line.rfind("}}")
+        if end >= 0:
+            yield from CLOZE_RE.finditer(text, pos, pos + end + 2)
+        pos += len(line) + 1
+
+
 def cloze_indexes(text: str) -> list[int]:
-    return sorted({int(m.group(1)) for m in CLOZE_RE.finditer(text)})
+    return sorted({int(m.group(1)) for m in _cloze_matches(text)})
 
 
 def cloze_answers(text: str, index: int) -> tuple[list[str], list[str]]:
     answers, hints = [], []
-    for m in CLOZE_RE.finditer(text):
+    for m in _cloze_matches(text):
         if int(m.group(1)) == index:
             answers.append(m.group(2))
             if m.group(3):
@@ -136,7 +148,11 @@ def cloze_answers(text: str, index: int) -> tuple[list[str], list[str]]:
 
 
 def cloze_plain(text: str) -> str:
-    return CLOZE_RE.sub(lambda m: m.group(2), text)
+    parts, last = [], 0
+    for m in _cloze_matches(text):
+        parts += [text[last:m.start()], m.group(2)]
+        last = m.end()
+    return "".join(parts) + text[last:]
 
 
 def safe_relative(name: str, label: str) -> PurePosixPath:

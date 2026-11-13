@@ -294,3 +294,49 @@ def test_extreme_deck_depth_is_rejected(tmp_path, fmt):
     path = fx.build(tmp_path / "ok", fmt, decks={10: ok}, card_decks={3001: 10, 3002: 10, 3003: 10})
     report = apkg.convert(path, None, tmp_path / "out", write=False)
     assert len(report["decks"]) == apkg.MAX_APKG_DECK_DEPTH
+
+
+@pytest.mark.parametrize("fmt", ["legacy", "schema18"])
+@pytest.mark.parametrize("where", ["x/../../escaped", ("x/../../escaped", 1), (5, "../../escaped")])
+def test_non_integer_anki_deck_id_is_rejected_before_anything_is_written(tmp_path, fmt, where):
+    # SQLite does not enforce column types: a crafted cards.did/odid can be text that would turn into
+    # manifest-anki-<did>.json outside --out. It must be refused before any file is written.
+    work = tmp_path / "a" / "b"
+    work.mkdir(parents=True)
+    path = fx.build(work, fmt, card_decks={3001: where, 3002: 2})
+    before = sorted(p for p in tmp_path.rglob("*"))
+    with pytest.raises(apkg.ApkgError, match="must be an integer"):
+        apkg.convert(path, None, work / "out")
+    assert sorted(p for p in tmp_path.rglob("*")) == before
+
+
+def test_manifest_file_name_backstop_refuses_to_leave_out_dir(tmp_path, monkeypatch):
+    path = fx.build(tmp_path, decks=TREE, card_decks=TREE_CARDS)
+    real = apkg.deck_tree
+
+    def evil_tree(col, used):
+        decks, leaf = real(col, used)
+        first = next(iter(leaf))
+        leaf[first] = "../escaped"
+        return decks, leaf
+    monkeypatch.setattr(apkg, "deck_tree", evil_tree)
+    with pytest.raises(apkg.ApkgError, match="unsafe manifest file name"):
+        apkg.convert(path, None, tmp_path / "out")
+    assert not (tmp_path / "manifest-..").exists() and not list(tmp_path.glob("escaped*"))
+    assert not (tmp_path / "out").exists()
+
+
+def test_media_and_tag_stripping_stay_linear_on_hostile_fields():
+    import time
+    n = 50000
+    for value in ("<img src=" + "src=" * n, "<img " * n + "src=x", '<img src="' * n, "<img " * n + ">",
+                  "<" * n, "<style" * n, "<div " * n, "[sound:" * n):
+        start = time.monotonic()
+        apkg.strip_html(value)
+        apkg.extract_media(value)
+        assert time.monotonic() - start < 2, value[:40]
+    # behaviour on well-formed and odd-but-valid tags is unchanged
+    assert apkg.extract_media('<img alt="x" data-src="d.png" src="s.png">') == [("image", "d.png")]
+    assert apkg.extract_media('<img src="a>b" alt=x') == [("image", '"a')]
+    assert apkg.extract_media('<img src="a>b" alt=x>') == [("image", "a>b")]
+    assert apkg.strip_html('a<img src=b.png>c') == "a c"
