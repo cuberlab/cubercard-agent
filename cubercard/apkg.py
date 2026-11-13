@@ -39,7 +39,7 @@ MEDIA_RE = re.compile(SOUND_RE.pattern + "|" + IMG_RE.pattern, re.I)
 MEDIA_START_RE = re.compile(r"(\[sound:)|<img\b", re.I)
 SRC_RE = re.compile(r"\bsrc\s*=\s*", re.I)
 STYLE_OPEN_RE = re.compile(r"<(style|script)\b", re.I)
-STYLE_CLOSE_RE = {"style": re.compile(r"</style>", re.I), "script": re.compile(r"</script>", re.I)}
+STYLE_RE = re.compile(r"(?is)<(style|script)\b.*?</\1>")
 BLOCK_TAG_RE = re.compile(r"(?i)<br\s*/?>|</(div|p|li|tr|h[1-6])>|<(div|p|li|tr|h[1-6])\b[^>]*>")
 ANY_TAG_RE = re.compile(r"(?s)<[^>]*>")
 REF_RE = re.compile(r"\{\{([^{}]+)\}\}")
@@ -336,18 +336,20 @@ def _sub_tags(pattern: re.Pattern, repl: str, text: str) -> str:
 
 
 def _drop_style_script(text: str) -> str:
-    """re.sub(r"(?is)<(style|script)\\b.*?</\\1>", " ", text) without rescanning to the end from each opener."""
+    """STYLE_RE.sub(" ", text) without rescanning to the end from each opener that has no closer. The closer is a
+    backreference, so openers whose text lowercases the same close the same way: once one finds no closer after it,
+    no later one will."""
     out, pos, dead = [], 0, set()
     for m in STYLE_OPEN_RE.finditer(text):
-        name = m.group(1).lower()
-        if m.start() < pos or name in dead:
+        key = m.group(1).lower()
+        if m.start() < pos or key in dead:
             continue
-        close = STYLE_CLOSE_RE[name].search(text, m.end())
-        if close is None:
-            dead.add(name)
+        found = STYLE_RE.match(text, m.start())
+        if found is None:
+            dead.add(key)
             continue
         out += [text[pos:m.start()], " "]
-        pos = close.end()
+        pos = found.end()
     return "".join(out) + text[pos:]
 
 
@@ -397,11 +399,22 @@ def template_faces(nt: NoteType, tmpl: Template) -> tuple[list[str], list[str]]:
     return front, back
 
 
+def _cloze_ref(fmt: str) -> str | None:
+    """re.search(r"\\{\\{[^{}]*cloze:([^{}]+)\\}\\}", fmt).group(1) without rescanning from every "cloze:": the first
+    {{...}} holding a "cloze:" that has something after it, and the text after the last such "cloze:"."""
+    for m in REF_RE.finditer(fmt):
+        inner = m.group(1)
+        at = inner[:-1].rfind("cloze:")
+        if at >= 0:
+            return inner[at + 6:]
+    return None
+
+
 def cloze_field(nt: NoteType) -> str:
     for tmpl in nt.templates:
-        m = re.search(r"\{\{[^{}]*cloze:([^{}]+)\}\}", tmpl.qfmt)
-        if m and m.group(1).strip() in nt.fields:
-            return m.group(1).strip()
+        ref = _cloze_ref(tmpl.qfmt)
+        if ref is not None and ref.strip() in nt.fields:
+            return ref.strip()
     return nt.fields[0]
 
 

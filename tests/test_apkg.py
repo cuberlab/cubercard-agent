@@ -340,3 +340,19 @@ def test_media_and_tag_stripping_stay_linear_on_hostile_fields():
     assert apkg.extract_media('<img src="a>b" alt=x') == [("image", '"a')]
     assert apkg.extract_media('<img src="a>b" alt=x>') == [("image", "a>b")]
     assert apkg.strip_html('a<img src=b.png>c') == "a c"
+
+
+def test_style_script_closer_follows_backreference_case_rules():
+    # re.I lets ſ stand for s in the opener; the closer must repeat the opener the way a backreference does.
+    assert apkg.strip_html("a<ſtyle>x</ſtyle>b") == "a b"
+    assert apkg.strip_html("before<style>keep</ſtyle>after") == "beforekeepafter"
+    assert apkg.strip_html("a<STYLE>x</style>b") == "a b"
+
+
+def test_cloze_template_lookup_stays_linear():
+    import time
+    start = time.monotonic()
+    assert apkg._cloze_ref("{{" + "cloze:" * 50000 + "x") is None
+    assert time.monotonic() - start < 2
+    assert apkg._cloze_ref("{{a}} {{cloze:Text}} {{cloze:Other}}") == "Text"
+    assert apkg._cloze_ref("{{cloze:cloze:}}") == "cloze:"
